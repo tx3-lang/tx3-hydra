@@ -35,6 +35,37 @@ pub struct Snapshot {
     pub utxo: HashMap<TxID, UtxoEntry>,
 }
 
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum HydraPParamsPlutusVersion {
+    PlutusV1,
+    PlutusV2,
+    PlutusV3,
+}
+impl From<HydraPParamsPlutusVersion> for u8 {
+    fn from(value: HydraPParamsPlutusVersion) -> Self {
+        match value {
+            HydraPParamsPlutusVersion::PlutusV1 => 1,
+            HydraPParamsPlutusVersion::PlutusV2 => 2,
+            HydraPParamsPlutusVersion::PlutusV3 => 3,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct HydraPParams {
+    #[serde(rename = "txFeePerByte")]
+    pub tx_fee_per_byte: u64,
+
+    #[serde(rename = "txFeeFixed")]
+    pub tx_fee_fixed: u64,
+
+    #[serde(rename = "utxoCostPerByte")]
+    pub utxo_cost_per_byte: u64,
+
+    #[serde(rename = "costModels")]
+    pub cost_models: HashMap<HydraPParamsPlutusVersion, Vec<i64>>,
+}
+
 /// Hydra head utxo data model
 #[derive(Deserialize, Debug, Clone)]
 pub struct UtxoEntry {
