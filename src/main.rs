@@ -1,13 +1,12 @@
 use std::env;
 
-use jsonrpsee::{RpcModule, server::Server};
 use serde::Deserialize;
-use tower::ServiceBuilder;
-use tower_http::cors::CorsLayer;
-use tracing::{Level, info};
+use tokio_util::sync::CancellationToken;
+use tracing::{Level, debug};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-mod methods;
+mod hydra;
+mod trp;
 
 #[tokio::main()]
 async fn main() -> anyhow::Result<()> {
@@ -23,48 +22,22 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::new()?;
 
-    let cors_layer = if config.permissive_cors {
-        CorsLayer::permissive()
-    } else {
-        CorsLayer::new()
-    };
+    let cancellation_token = cancellation_token();
 
-    let middleware = ServiceBuilder::new().layer(cors_layer);
-    let server = Server::builder()
-        .set_http_middleware(middleware)
-        .build(&config.listen_address)
-        .await?;
+    let hydra_adapter = hydra::HydraAdapter::new();
 
-    let mut module = RpcModule::new(Context {
-        config: config.clone(),
-    });
+    let hydra_ws = hydra_adapter.run(config.hydra.clone(), cancellation_token.clone());
+    let trp_server = trp::run(config.trp.clone(), cancellation_token.clone());
 
-    module.register_async_method("trp.resolve", |params, context, _| async {
-        methods::trp_resolve(params, context).await
-    })?;
-
-    module.register_method("health", |_, context, _| methods::health(context))?;
-
-    info!(
-        address = config.listen_address.to_string(),
-        "TRP server running"
-    );
-
-    server.start(module).stopped().await;
+    tokio::try_join!(hydra_ws, trp_server)?;
 
     Ok(())
 }
 
-struct Context {
-    #[allow(dead_code)]
-    config: Config,
-}
-
 #[derive(Deserialize, Clone)]
-struct Config {
-    listen_address: String,
-    #[serde(default)]
-    permissive_cors: bool,
+pub struct Config {
+    trp: trp::Config,
+    hydra: hydra::Config,
 }
 impl Config {
     pub fn new() -> anyhow::Result<Self> {
@@ -82,4 +55,19 @@ impl Config {
 
         Ok(config)
     }
+}
+
+fn cancellation_token() -> CancellationToken {
+    let cancel = CancellationToken::new();
+
+    let cancel2 = cancel.clone();
+    tokio::spawn(async move {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to listen for Ctrl+C");
+        debug!("shutdown signal received");
+        cancel2.cancel();
+    });
+
+    cancel
 }

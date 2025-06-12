@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use jsonrpsee::types::{ErrorObjectOwned, Params};
 
-use crate::Context;
+use super::Context;
 
 pub async fn trp_resolve(
     _params: Params<'_>,
