@@ -70,46 +70,46 @@ pub struct HydraPParams {
 #[derive(Deserialize, Debug, Clone)]
 pub struct UtxoEntry {
     /// A bech-32 encoded Cardano address
-    address: String,
+    pub address: String,
 
     /// Base16 encoding
-    datum: Option<String>,
+    pub datum: Option<String>,
 
     /// Base16 encoding
-    datumhash: Option<String>,
+    pub datumhash: Option<String>,
 
     #[serde(rename = "inlineDatum")]
-    inline_datum: Option<serde_json::Value>,
+    pub inline_datum: Option<serde_json::Value>,
 
     /// Base16 encoding
     #[serde(rename = "inlineDatumhash")]
-    inline_datum_hash: Option<String>,
+    pub inline_datum_hash: Option<String>,
 
     /// The base16-encoding of the CBOR encoding of some binary data
     #[serde(rename = "inlineDatumRaw")]
-    inline_datum_raw: Option<String>,
+    pub inline_datum_raw: Option<String>,
 
     #[serde(rename = "referenceScript")]
-    reference_script: Option<ReferenceScript>,
+    pub reference_script: Option<ReferenceScript>,
 
-    value: Value,
+    pub value: Value,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ReferenceScript {
     /// Base16 encoding
     #[serde(rename = "cborHex")]
-    cbor_hex: String,
+    pub cbor_hex: String,
 
-    description: String,
+    pub description: String,
 
     /// Types available: SimpleScript, PlutusScriptV1, PlutusScriptV2, PlutusScriptV3
-    r#type: String,
+    pub r#type: String,
 }
 
 /// Map of asset IDs to amounts
 #[derive(Deserialize, Debug, Clone)]
 pub struct Value {
     #[serde(flatten)]
-    assets: HashMap<String, u64>,
+    pub assets: HashMap<String, u64>,
 }
