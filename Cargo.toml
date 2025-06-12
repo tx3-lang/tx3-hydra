@@ -19,3 +19,8 @@ tower = "0.5.2"
 tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+tx3-lang = "0.6.0"
+tx3-cardano = "0.6.0"
+hex = "0.4.3"
+base64 = "0.22.1"

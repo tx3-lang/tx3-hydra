@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, sync::Arc};
 
 use serde::Deserialize;
 use tokio_util::sync::CancellationToken;
@@ -24,10 +24,14 @@ async fn main() -> anyhow::Result<()> {
 
     let cancellation_token = cancellation_token();
 
-    let hydra_adapter = hydra::HydraAdapter::new();
+    let hydra_adapter = Arc::new(hydra::HydraAdapter::try_new(config.hydra.clone()).await?);
 
-    let hydra_ws = hydra_adapter.run(config.hydra.clone(), cancellation_token.clone());
-    let trp_server = trp::run(config.trp.clone(), cancellation_token.clone());
+    let hydra_ws = hydra_adapter.run(cancellation_token.clone());
+    let trp_server = trp::run(
+        config.trp.clone(),
+        Arc::clone(&hydra_adapter),
+        cancellation_token.clone(),
+    );
 
     tokio::try_join!(hydra_ws, trp_server)?;
 

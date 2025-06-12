@@ -1,35 +1,60 @@
 use std::collections::HashMap;
 
-use futures_util::{SinkExt, StreamExt};
+use event::{Event, HeadStatus, TxID, UtxoEntry};
+use futures_util::{
+    StreamExt,
+    stream::{SplitSink, SplitStream},
+};
 use serde::Deserialize;
-use tokio::sync::RwLock;
-use tokio_tungstenite::connect_async;
+use tokio::{
+    net::TcpStream,
+    sync::{Mutex, RwLock},
+};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{error, info, warn};
 
+mod event;
+
+type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 pub struct HydraAdapter {
-    snapshot: RwLock<Snapshot>,
+    snapshot: RwLock<HashMap<TxID, UtxoEntry>>,
+    head_status: RwLock<HeadStatus>,
+    stream: Mutex<SplitStream<WsStream>>,
+    sink: SplitSink<WsStream, Message>,
 }
 
 impl HydraAdapter {
-    pub fn new() -> Self {
-        Self {
-            snapshot: RwLock::default(),
-        }
-    }
-
-    pub async fn run(
-        &self,
-        config: Config,
-        cancellation_token: CancellationToken,
-    ) -> anyhow::Result<()> {
+    pub async fn try_new(config: Config) -> anyhow::Result<Self> {
         let (ws_stream, _) = connect_async(&config.url).await?;
         info!("Hydra ws handshake has been successfully completed");
 
-        let (_write, mut read) = ws_stream.split();
+        let (write, read) = ws_stream.split();
+
+        let snapshot = RwLock::default();
+        let stream = Mutex::new(read);
+        let sink = write;
+        let head_status = RwLock::new(HeadStatus::Closed);
+
+        Ok(Self {
+            snapshot,
+            stream,
+            sink,
+            head_status,
+        })
+    }
+
+    pub async fn utxos(&self) -> HashMap<TxID, UtxoEntry> {
+        self.snapshot.read().await.clone()
+    }
+
+    pub async fn run(&self, cancellation_token: CancellationToken) -> anyhow::Result<()> {
+        info!("Listening Hydra events");
+
+        let mut stream = self.stream.lock().await;
 
         let message_processing = async {
-            while let Some(result) = read.next().await {
+            while let Some(result) = stream.next().await {
                 let message = result?;
 
                 if message.is_close() {
@@ -37,8 +62,22 @@ impl HydraAdapter {
                     break;
                 }
 
-                let value = serde_json::from_str::<serde_json::Value>(message.to_text().unwrap())?;
-                println!("{}", serde_json::to_string_pretty(&value).unwrap());
+                match serde_json::from_str::<Event>(message.to_text().unwrap()) {
+                    Ok(event) => match event {
+                        Event::Snapshot { snapshot } => {
+                            *self.snapshot.write().await = snapshot.utxo;
+                        }
+                        Event::Bootstrap { head_status, utxo } => {
+                            *self.snapshot.write().await = utxo;
+                            *self.head_status.write().await = head_status;
+                        }
+                    },
+
+                    Err(_) => {
+                        let message = message.to_text().unwrap();
+                        warn!(?message, "Hydra event not supported")
+                    }
+                }
             }
 
             Ok::<(), anyhow::Error>(())
@@ -71,62 +110,4 @@ impl HydraAdapter {
 #[derive(Deserialize, Clone)]
 pub struct Config {
     url: String,
-}
-
-#[derive(Deserialize, Debug, Default)]
-struct Snapshot {
-    utxo: HashMap<String, UtxoEntry>,
-    // #[serde(rename = "utxoToCommit")]
-    // utxo_to_commit: Option<serde_json::Value>,
-    // #[serde(rename = "utxoToDecommit")]
-    // utxo_to_decommit: Option<serde_json::Value>,
-    version: u64,
-}
-
-/// Hydra head utxo data model
-#[derive(Deserialize, Debug)]
-struct UtxoEntry {
-    /// A bech-32 encoded Cardano address
-    address: String,
-
-    /// Base16 encoding
-    datum: Option<String>,
-
-    /// Base16 encoding
-    datumhash: Option<String>,
-
-    #[serde(rename = "inlineDatum")]
-    inline_datum: Option<serde_json::Value>,
-
-    /// Base16 encoding
-    #[serde(rename = "inlineDatumhash")]
-    inline_datum_hash: Option<String>,
-
-    /// The base16-encoding of the CBOR encoding of some binary data
-    #[serde(rename = "inlineDatumRaw")]
-    inline_datum_raw: Option<String>,
-
-    #[serde(rename = "referenceScript")]
-    reference_script: Option<ReferenceScript>,
-
-    value: Value,
-}
-
-#[derive(Deserialize, Debug)]
-struct ReferenceScript {
-    /// Base16 encoding
-    #[serde(rename = "cborHex")]
-    cbor_hex: String,
-
-    description: String,
-
-    /// Types available: SimpleScript, PlutusScriptV1, PlutusScriptV2, PlutusScriptV3
-    r#type: String,
-}
-
-/// Map of asset IDs to amounts
-#[derive(Deserialize, Debug)]
-struct Value {
-    #[serde(flatten)]
-    assets: HashMap<String, u64>,
 }
