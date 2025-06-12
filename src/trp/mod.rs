@@ -28,7 +28,10 @@ pub async fn run(
         .build(&config.listen_address)
         .await?;
 
-    let mut module = RpcModule::new(Context { hydra_adapter });
+    let mut module = RpcModule::new(Context {
+        hydra_adapter,
+        config: config.clone(),
+    });
 
     module.register_async_method("trp.resolve", |params, context, _| async {
         methods::trp_resolve(params, context).await
@@ -62,6 +65,11 @@ pub async fn run(
 
 struct Context {
     hydra_adapter: Arc<HydraAdapter>,
+    config: Config,
+}
+
+fn default_max_optimize_rounds() -> usize {
+    10
 }
 
 #[derive(Deserialize, Clone)]
@@ -69,4 +77,6 @@ pub struct Config {
     listen_address: String,
     #[serde(default)]
     permissive_cors: bool,
+    #[serde(default = "default_max_optimize_rounds")]
+    max_optimize_rounds: usize,
 }

@@ -64,13 +64,13 @@ impl Config {
 fn cancellation_token() -> CancellationToken {
     let cancel = CancellationToken::new();
 
-    let cancel2 = cancel.clone();
+    let cancel_cloned = cancel.clone();
     tokio::spawn(async move {
         tokio::signal::ctrl_c()
             .await
             .expect("failed to listen for Ctrl+C");
         debug!("shutdown signal received");
-        cancel2.cancel();
+        cancel_cloned.cancel();
     });
 
     cancel

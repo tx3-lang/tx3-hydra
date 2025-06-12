@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use jsonrpsee::types::{ErrorObjectOwned, Params};
+use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params};
 use resolve::decode_params;
 use tracing::info;
 
 use super::Context;
+
 mod resolve;
 
 pub async fn trp_resolve(
@@ -20,38 +21,32 @@ pub async fn trp_resolve(
         }
     };
 
-    let hydra_adapter = Arc::clone(&context.hydra_adapter);
+    let hydra_adapter = context.hydra_adapter.clone();
+    let hydra_ledger = hydra_adapter.ledger.read().await.clone();
 
-    let x = hydra_adapter.utxos().await;
+    let resolved =
+        tx3_cardano::resolve_tx(tx, hydra_ledger, context.config.max_optimize_rounds.into())
+            .await
+            .map_err(|err| {
+                ErrorObject::owned(
+                    ErrorCode::InternalError.code(),
+                    "Failed to resolve",
+                    Some(err.to_string()),
+                )
+            });
 
-    Ok(serde_json::json!({ "utxos": x.len()  }))
+    let resolved = match resolved {
+        Ok(resolved) => resolved,
+        Err(err) => {
+            tracing::warn!(err = ?err, "Failed to resolve tx.");
+            return Err(err);
+        }
+    };
 
-    // let resolved = tx3_cardano::resolve_tx::<Context<D>>(
-    //     tx,
-    //     (*context).clone(),
-    //     context.config.max_optimize_rounds.into(),
-    // )
-    // .await
-    // .map_err(|err| {
-    //     ErrorObject::owned(
-    //         ErrorCode::InternalError.code(),
-    //         "Failed to resolve",
-    //         Some(err.to_string()),
-    //     )
-    // });
-    //
-    // let resolved = match resolved {
-    //     Ok(resolved) => resolved,
-    //     Err(err) => {
-    //         tracing::warn!(err = ?err, "Failed to resolve tx.");
-    //         return Err(err);
-    //     }
-    // };
-    //
-    // Ok(serde_json::json!({ "tx": hex::encode(resolved.payload) }))
+    Ok(serde_json::json!({ "tx": hex::encode(resolved.payload) }))
 }
 
 pub fn health(_context: &Context) -> bool {
-    // TODO: implement health check
+    // TODO: implement hydra/trp health check
     true
 }

@@ -12,13 +12,15 @@ use tokio::{
 };
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
+use tx3_cardano::{Error, Ledger, PParams};
+use tx3_lang::ir::InputQuery;
 
 mod event;
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 pub struct HydraAdapter {
-    snapshot: RwLock<HashMap<TxID, UtxoEntry>>,
+    pub ledger: RwLock<HydraLedger>,
     head_status: RwLock<HeadStatus>,
     stream: Mutex<SplitStream<WsStream>>,
     sink: SplitSink<WsStream, Message>,
@@ -31,13 +33,13 @@ impl HydraAdapter {
 
         let (write, read) = ws_stream.split();
 
-        let snapshot = RwLock::default();
+        let ledger = RwLock::default();
         let stream = Mutex::new(read);
         let sink = write;
         let head_status = RwLock::new(HeadStatus::Closed);
 
         Ok(Self {
-            snapshot,
+            ledger,
             stream,
             sink,
             head_status,
@@ -45,7 +47,7 @@ impl HydraAdapter {
     }
 
     pub async fn utxos(&self) -> HashMap<TxID, UtxoEntry> {
-        self.snapshot.read().await.clone()
+        self.ledger.read().await.clone().0
     }
 
     pub async fn run(&self, cancellation_token: CancellationToken) -> anyhow::Result<()> {
@@ -65,10 +67,10 @@ impl HydraAdapter {
                 match serde_json::from_str::<Event>(message.to_text().unwrap()) {
                     Ok(event) => match event {
                         Event::Snapshot { snapshot } => {
-                            *self.snapshot.write().await = snapshot.utxo;
+                            self.ledger.write().await.update(snapshot.utxo);
                         }
                         Event::Bootstrap { head_status, utxo } => {
-                            *self.snapshot.write().await = utxo;
+                            self.ledger.write().await.update(utxo);
                             *self.head_status.write().await = head_status;
                         }
                     },
@@ -105,7 +107,23 @@ impl HydraAdapter {
     }
 }
 
-// Implement tx3 ledger adapter
+#[derive(Debug, Clone, Default)]
+pub struct HydraLedger(HashMap<TxID, UtxoEntry>);
+impl HydraLedger {
+    pub fn update(&mut self, utxo_snapshot: HashMap<TxID, UtxoEntry>) {
+        self.0 = utxo_snapshot;
+    }
+}
+
+impl Ledger for HydraLedger {
+    async fn get_pparams(&self) -> Result<PParams, Error> {
+        todo!()
+    }
+
+    async fn resolve_input(&self, query: &InputQuery) -> Result<tx3_lang::UtxoSet, Error> {
+        todo!()
+    }
+}
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
