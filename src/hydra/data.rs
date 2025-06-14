@@ -13,7 +13,7 @@ pub enum Event {
         head_status: HeadStatus,
 
         #[serde(alias = "snapshotUtxo")]
-        utxo: HashMap<TxID, UtxoEntry>,
+        utxo: HashMap<TxID, Utxo>,
     },
     Snapshot {
         snapshot: Snapshot,
@@ -32,7 +32,7 @@ pub enum HeadStatus {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Snapshot {
-    pub utxo: HashMap<TxID, UtxoEntry>,
+    pub utxo: HashMap<TxID, Utxo>,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
@@ -68,7 +68,7 @@ pub struct HydraPParams {
 
 /// Hydra head utxo data model
 #[derive(Deserialize, Debug, Clone)]
-pub struct UtxoEntry {
+pub struct Utxo {
     /// A bech-32 encoded Cardano address
     pub address: String,
 
