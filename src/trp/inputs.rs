@@ -1,13 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
-use crate::{
-    hydra::{
-        HydraLedger,
-        data::{TxID, Utxo},
-    },
-    trp::ledger::into_tx3_utxo,
+use crate::hydra::{
+    HydraLedger,
+    data::{TxID, Utxo},
 };
+
+use super::utxos::into_tx3_utxo;
 
 enum Subset {
     All,

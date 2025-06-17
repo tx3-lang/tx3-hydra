@@ -12,6 +12,7 @@ use crate::hydra::HydraAdapter;
 mod inputs;
 mod ledger;
 mod methods;
+mod utxos;
 
 pub async fn run(
     config: Config,

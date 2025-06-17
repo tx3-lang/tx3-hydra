@@ -76,6 +76,7 @@ pub struct Utxo {
     pub datum: Option<String>,
 
     /// Base16 encoding
+    #[allow(dead_code)]
     pub datumhash: Option<String>,
 
     #[serde(rename = "inlineDatum")]
@@ -83,6 +84,7 @@ pub struct Utxo {
 
     /// Base16 encoding
     #[serde(rename = "inlineDatumhash")]
+    #[allow(dead_code)]
     pub inline_datum_hash: Option<String>,
 
     /// The base16-encoding of the CBOR encoding of some binary data
@@ -90,12 +92,14 @@ pub struct Utxo {
     pub inline_datum_raw: Option<String>,
 
     #[serde(rename = "referenceScript")]
+    #[allow(dead_code)]
     pub reference_script: Option<ReferenceScript>,
 
     pub value: Value,
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct ReferenceScript {
     /// Base16 encoding
     #[serde(rename = "cborHex")]
