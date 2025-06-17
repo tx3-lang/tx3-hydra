@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use data::{Event, HeadStatus, HydraPParams, TxID, Utxo};
+use anyhow::Context;
+use data::{Event, HeadStatus, HydraMessage, HydraPParams, TxID, Utxo};
 use futures_util::{
-    StreamExt,
+    SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
 use serde::Deserialize;
@@ -22,7 +23,7 @@ pub struct HydraAdapter {
     pub ledger: RwLock<HydraLedger>,
     head_status: RwLock<HeadStatus>,
     stream: Mutex<SplitStream<WsStream>>,
-    sink: SplitSink<WsStream, Message>,
+    sink: Mutex<SplitSink<WsStream, Message>>,
 }
 
 impl HydraAdapter {
@@ -34,7 +35,7 @@ impl HydraAdapter {
 
         let ledger = RwLock::new(HydraLedger::new(config));
         let stream = Mutex::new(read);
-        let sink = write;
+        let sink = Mutex::new(write);
         let head_status = RwLock::new(HeadStatus::Closed);
 
         Ok(Self {
@@ -45,7 +46,7 @@ impl HydraAdapter {
         })
     }
 
-    pub async fn run(&self, cancellation_token: CancellationToken) -> anyhow::Result<()> {
+    pub async fn subscribe(&self, cancellation_token: CancellationToken) -> anyhow::Result<()> {
         info!("Listening Hydra events");
 
         let mut stream = self.stream.lock().await;
@@ -97,6 +98,16 @@ impl HydraAdapter {
             }
         }
 
+        Ok(())
+    }
+
+    pub async fn submit(&self, hydra_message: HydraMessage) -> anyhow::Result<()> {
+        let mut sink = self.sink.lock().await;
+        let message_bytes = serde_json::to_vec(&hydra_message)?;
+        let message = Message::binary(message_bytes);
+        sink.send(message)
+            .await
+            .context("failed to send message to hydra head")?;
         Ok(())
     }
 }

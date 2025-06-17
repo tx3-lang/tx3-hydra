@@ -1,22 +1,21 @@
+use std::sync::Arc;
+
 use base64::Engine;
 use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params};
 use serde::Deserialize;
+use tracing::info;
 use tx3_lang::ProtoTx;
 
-#[derive(Deserialize, Debug)]
-enum IrEncoding {
-    #[serde(rename = "base64")]
-    Base64,
-    #[serde(rename = "hex")]
-    Hex,
-}
+use crate::trp::Context;
+
+use super::Encoding;
 
 #[derive(Deserialize, Debug)]
 struct IrEnvelope {
     #[allow(dead_code)]
     pub version: String,
     pub bytecode: String,
-    pub encoding: IrEncoding,
+    pub encoding: Encoding,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,7 +122,7 @@ fn handle_param_args(tx: &mut ProtoTx, args: &serde_json::Value) -> Result<(), E
     Ok(())
 }
 
-pub fn decode_params(params: Params<'_>) -> Result<ProtoTx, ErrorObjectOwned> {
+fn decode_params(params: Params<'_>) -> Result<ProtoTx, ErrorObjectOwned> {
     let params: TrpResolveParams = params.parse()?;
 
     if params.tir.version != tx3_lang::ir::IR_VERSION {
@@ -138,7 +137,7 @@ pub fn decode_params(params: Params<'_>) -> Result<ProtoTx, ErrorObjectOwned> {
     }
 
     let tx = match params.tir.encoding {
-        IrEncoding::Base64 => base64::engine::general_purpose::STANDARD
+        Encoding::Base64 => base64::engine::general_purpose::STANDARD
             .decode(params.tir.bytecode)
             .map_err(|x| {
                 ErrorObject::owned(
@@ -147,7 +146,7 @@ pub fn decode_params(params: Params<'_>) -> Result<ProtoTx, ErrorObjectOwned> {
                     Some(x.to_string()),
                 )
             })?,
-        IrEncoding::Hex => hex::decode(params.tir.bytecode).map_err(|x| {
+        Encoding::Hex => hex::decode(params.tir.bytecode).map_err(|x| {
             ErrorObject::owned(
                 ErrorCode::InvalidParams.code(),
                 "Failed to decode IR using hex encoding",
@@ -167,4 +166,41 @@ pub fn decode_params(params: Params<'_>) -> Result<ProtoTx, ErrorObjectOwned> {
     handle_param_args(&mut tx, &params.args)?;
 
     Ok(tx)
+}
+
+pub async fn execute(
+    params: Params<'_>,
+    context: Arc<Context>,
+) -> Result<serde_json::Value, ErrorObjectOwned> {
+    info!(method = "trp.resolve", "Received TRP request.");
+    let tx = match decode_params(params) {
+        Ok(tx) => tx,
+        Err(err) => {
+            tracing::warn!(err = ?err, "Failed to decode params.");
+            return Err(err);
+        }
+    };
+
+    let hydra_adapter = context.hydra_adapter.clone();
+    let hydra_ledger = hydra_adapter.ledger.read().await.clone();
+
+    let resolved = tx3_cardano::resolve_tx(tx, hydra_ledger, context.config.max_optimize_rounds)
+        .await
+        .map_err(|err| {
+            ErrorObject::owned(
+                ErrorCode::InternalError.code(),
+                "Failed to resolve",
+                Some(err.to_string()),
+            )
+        });
+
+    let resolved = match resolved {
+        Ok(resolved) => resolved,
+        Err(err) => {
+            tracing::warn!(err = ?err, "Failed to resolve tx.");
+            return Err(err);
+        }
+    };
+
+    Ok(serde_json::json!({ "tx": hex::encode(resolved.payload) }))
 }

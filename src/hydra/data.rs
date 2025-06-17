@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, Serializer, ser::SerializeStruct};
 
 /// Transaction Hash # Index
 pub type TxID = String;
@@ -116,4 +116,47 @@ pub struct ReferenceScript {
 pub struct Value {
     #[serde(flatten)]
     pub assets: HashMap<String, u64>,
+}
+
+/// Tags accepted by hydra Websocket
+#[derive(Debug, Clone)]
+pub enum HydraMessage {
+    NewTx(NewTx),
+}
+impl Serialize for HydraMessage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            HydraMessage::NewTx(tx) => {
+                let mut state = serializer.serialize_struct("Message", 2)?;
+                state.serialize_field("tag", "NewTx")?;
+                state.serialize_field("transaction", tx)?;
+                state.end()
+            }
+        }
+    }
+}
+
+/// Submit new tx using Websocket
+#[derive(Serialize, Debug, Clone)]
+pub struct NewTx {
+    pub r#type: String,
+    pub description: String,
+    #[serde(rename = "cborHex")]
+    pub cbor_hex: String,
+}
+impl NewTx {
+    pub fn new(cbor: Vec<u8>) -> Self {
+        let r#type = String::from("Tx ConwayEra");
+        let description = String::from("Tx3 Transaction");
+        let cbor_hex = hex::encode(cbor);
+
+        Self {
+            r#type,
+            description,
+            cbor_hex,
+        }
+    }
 }

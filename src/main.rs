@@ -26,14 +26,14 @@ async fn main() -> anyhow::Result<()> {
 
     let hydra_adapter = Arc::new(hydra::HydraAdapter::try_new(config.hydra.clone()).await?);
 
-    let hydra_ws = hydra_adapter.run(cancellation_token.clone());
+    let hydra_subscribe = hydra_adapter.subscribe(cancellation_token.clone());
     let trp_server = trp::run(
         config.trp.clone(),
         Arc::clone(&hydra_adapter),
         cancellation_token.clone(),
     );
 
-    tokio::try_join!(hydra_ws, trp_server)?;
+    tokio::try_join!(hydra_subscribe, trp_server)?;
 
     Ok(())
 }

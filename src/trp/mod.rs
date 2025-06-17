@@ -37,10 +37,13 @@ pub async fn run(
     });
 
     module.register_async_method("trp.resolve", |params, context, _| async {
-        methods::trp_resolve(params, context).await
+        methods::resolve::execute(params, context).await
+    })?;
+    module.register_async_method("trp.submit", |params, context, _| async {
+        methods::submit::execute(params, context).await
     })?;
 
-    module.register_method("health", |_, context, _| methods::health(context))?;
+    module.register_method("health", |_, context, _| methods::health::execute(context))?;
 
     info!(
         address = config.listen_address.to_string(),
