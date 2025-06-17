@@ -43,7 +43,9 @@ pub async fn run(
         methods::submit::execute(params, context).await
     })?;
 
-    module.register_method("health", |_, context, _| methods::health::execute(context))?;
+    module.register_async_method("health", |_, context, _| async {
+        methods::health::execute(context).await
+    })?;
 
     info!(
         address = config.listen_address.to_string(),

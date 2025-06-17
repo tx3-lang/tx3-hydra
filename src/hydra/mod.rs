@@ -110,6 +110,12 @@ impl HydraAdapter {
             .context("failed to send message to hydra head")?;
         Ok(())
     }
+
+    pub async fn check_health(&self) -> bool {
+        let mut sink = self.sink.lock().await;
+        let result = sink.send(Message::Ping(Vec::new().into())).await;
+        result.is_ok()
+    }
 }
 
 #[derive(Debug, Clone, Default)]
