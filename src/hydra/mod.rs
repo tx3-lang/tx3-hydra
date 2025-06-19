@@ -13,7 +13,7 @@ use tokio::{
 };
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 use tokio_util::sync::CancellationToken;
-use tracing::{info, warn};
+use tracing::{debug, info};
 use tx3_cardano::PParams;
 
 pub mod data;
@@ -62,9 +62,11 @@ impl HydraAdapter {
                 match serde_json::from_str::<Event>(message.to_text().unwrap()) {
                     Ok(event) => match event {
                         Event::Snapshot { snapshot } => {
+                            info!(utxos = snapshot.utxo.len(), "Snapshot updated");
                             self.ledger.write().await.update(snapshot.utxo);
                         }
                         Event::Bootstrap { head_status, utxo } => {
+                            info!(utxos = utxo.len(), "Bootstrap done");
                             self.ledger.write().await.update(utxo);
                             *self.head_status.write().await = head_status;
                         }
@@ -72,7 +74,7 @@ impl HydraAdapter {
 
                     Err(_) => {
                         let message = message.to_text().unwrap();
-                        warn!(?message, "Hydra event not supported")
+                        debug!(?message, "Hydra event not supported")
                     }
                 }
             }
