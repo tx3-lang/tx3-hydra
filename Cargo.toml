@@ -1,0 +1,27 @@
+[package]
+name = "tx3-hydra"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+config = { version = "0.15.11", features = ["toml"] }
+futures-util = "0.3.31"
+http = "1.3.1"
+hyper = "1.6.0"
+jsonrpsee = { version = "0.25.1", features = ["server"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.45.1", features = ["rt", "signal"] }
+tokio-tungstenite = "0.26.2"
+tokio-util = { version = "0.7.15", features = ["rt"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.6", features = ["cors", "trace"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+tx3-lang = "0.6.0"
+tx3-cardano = "0.6.0"
+hex = "0.4.3"
+base64 = "0.22.1"
+reqwest = { version = "0.12.20", features = ["json", "rustls-tls"] }
