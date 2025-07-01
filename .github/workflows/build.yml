@@ -8,6 +8,10 @@ on:
 
 jobs:
   boros:
+    permissions:
+      contents: read
+      packages: write
+
     strategy:
       fail-fast: false
       matrix:
