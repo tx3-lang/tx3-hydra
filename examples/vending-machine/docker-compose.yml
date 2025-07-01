@@ -1,0 +1,76 @@
+version: "3"
+services:
+  hydra-node-1:
+    container_name: hydra-node-1
+    image: ghcr.io/cardano-scaling/hydra-node:0.22.2
+    restart: always
+    volumes:
+      - ./chain:/chain
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.10
+    command:
+      [ "--api-host", "0.0.0.0"
+      , "--listen", "172.16.238.10:5001"
+      , "--monitoring-port", "6001"
+      , "--peer", "172.16.238.20:5001"
+      , "--hydra-signing-key", "/chain/hydra-node-1/hydra/user.sk"
+      , "--hydra-verification-key", "/chain/hydra-node-2/hydra/user.vk"
+      , "--ledger-protocol-parameters", "/chain/protocol-parameters.json"
+      , "--offline-head-seed", "0001"
+      , "--initial-utxo", "/chain/hydra-node-1/utxo.json"
+      ]
+  hydra-tx3-1:
+    container_name: hydra-tx3-1
+    image: ghcr.io/tx3-lang/tx3-hydra:16ce694c1c469e12e45818631d0c455b013bdcca
+    restart: always
+    depends_on:
+      - hydra-node-1
+    ports:
+      - "8164:8164"
+    volumes:
+      - ./chain/hydra-node-1/tx3.toml:/etc/tx3hydra/config.toml
+    networks:
+      hydra_net:
+
+  hydra-node-2:
+    container_name: hydra-node-2
+    image: ghcr.io/cardano-scaling/hydra-node:0.22.2
+    restart: always
+    volumes:
+      - ./chain:/chain
+    networks:
+      hydra_net:
+        ipv4_address: 172.16.238.20
+    command:
+      [ "--api-host", "0.0.0.0"
+      , "--listen", "172.16.238.20:5001"
+      , "--monitoring-port", "6001"
+      , "--peer", "172.16.238.10:5001"
+      , "--hydra-signing-key", "/chain/hydra-node-2/hydra/user.sk"
+      , "--hydra-verification-key", "/chain/hydra-node-1/hydra/user.vk"
+      , "--ledger-protocol-parameters", "/chain/protocol-parameters.json"
+      , "--offline-head-seed", "0002"
+      , "--initial-utxo", "/chain/hydra-node-2/utxo.json"
+      ]
+  hydra-tx3-2:
+    container_name: hydra-tx3-2
+    image: ghcr.io/tx3-lang/tx3-hydra:16ce694c1c469e12e45818631d0c455b013bdcca
+    restart: always
+    depends_on:
+      - hydra-node-2
+    ports:
+      - "8163:8164"
+    volumes:
+      - ./chain/hydra-node-2/tx3.toml:/etc/tx3hydra/config.toml
+    networks:
+      hydra_net:
+
+networks:
+  hydra_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
+          gateway: 172.16.238.1
