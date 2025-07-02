@@ -69,6 +69,45 @@ export default function Home() {
     toast.error("Transaction fail");
   };
 
+  const payBack = async () => {
+    try {
+
+      const response = await fetch("/api/pay", {
+        method: "POST",
+        body: JSON.stringify({
+          address: walletAddress
+        })
+      });
+
+      if (!response.ok) {
+        toast.error("Transaction fail");
+        return
+      }
+
+      const payload = await response.json();
+      const signature = await connectedWallet?.signTx(payload.tx);
+
+      const responseSubmit = await fetch("/api/pay", {
+        method: "PUT",
+        body: JSON.stringify({
+          tx: payload.tx,
+          signature
+        })
+      });
+
+      if (!responseSubmit.ok) {
+        toast.error("Transaction fail");
+        return
+      }
+
+      toast.success("Transaction done");
+
+    } catch (err) {
+      console.error(err)
+      toast.error("Transaction fail");
+    }
+  };
+
   return (
     <>
 
@@ -94,16 +133,29 @@ export default function Home() {
 
         <div>{walletAddress}</div>
 
-        <button
-          onClick={register}
-          className={`mt-4 px-4 py-2 rounded-md ${walletAddress
-            ? "bg-blue-500 text-white"
-            : "bg-gray-500/50 cursor-not-allowed"
-            }`}
-          disabled={!walletAddress}
-        >
-          Get Tx
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={register}
+            className={`mt-4 px-4 py-2 rounded-md ${walletAddress
+              ? "bg-blue-500 text-white cursor-pointer"
+              : "bg-gray-500/50 cursor-not-allowed"
+              }`}
+            disabled={!walletAddress}
+          >
+            Register
+          </button>
+
+          <button
+            onClick={payBack}
+            className={`mt-4 px-4 py-2 rounded-md ${walletAddress
+              ? "bg-blue-500 text-white cursor-pointer"
+              : "bg-gray-500/50 cursor-not-allowed"
+              }`}
+            disabled={!walletAddress}
+          >
+            Pay back
+          </button>
+        </div>
       </div>
     </>
   );
