@@ -13,6 +13,7 @@ services:
       , "--initial-utxo", "/chain/utxo.json"
       ]
     ports:
+      - "6001:6001"
       - "4001:4001"
     volumes:
       - ./chain:/chain
@@ -29,6 +30,8 @@ services:
       - hydra-node
     ports:
       - "8164:8164"
+    environment:
+      - RUST_LOG=debug
     volumes:
       - ./chain/tx3.toml:/etc/tx3hydra/config.toml
     networks:
