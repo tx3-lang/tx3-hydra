@@ -3,12 +3,14 @@ import cbor from "cbor"
 
 import { Client } from "~/tx3/protocol";
 
+const TRP_URL = process.env["TRP_URL"] || "http://localhost:8164"
+
 export const action = async ({ request }: { request: Request }) => {
   if (request.method === 'POST') {
     const payload = await request.json();
 
     const client = new Client({
-      endpoint: "http://localhost:8164"
+      endpoint: TRP_URL
     });
 
     // TODO: import from the file
@@ -28,10 +30,11 @@ export const action = async ({ request }: { request: Request }) => {
     fixedTx.sign_and_add_vkey_signature(privateKey);
     const signedTx = fixedTx.to_hex();
 
+    console.log(signedTx)
+
     // TODO: add support for submit in trp?
     // TODO: validate errors
-    // TODO: change url to use from env
-    await fetch("http://localhost:8164", {
+    await fetch(TRP_URL, {
       headers: {
         "Content-Type": "application/json"
       },
