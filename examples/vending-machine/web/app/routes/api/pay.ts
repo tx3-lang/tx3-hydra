@@ -1,4 +1,5 @@
 import * as CSL from "@emurgo/cardano-serialization-lib-nodejs"
+import cbor from "cbor"
 
 import { Client } from "~/tx3/protocol";
 
@@ -18,8 +19,13 @@ export const action = async ({ request }: { request: Request }) => {
       sender: payload.address
     })
 
+    const fixedTx = CSL.FixedTransaction.from_hex(response.tx)
+    const hash = fixedTx.transaction_hash().to_hex()
+    console.log("TX HASH TO SIGN: ", hash)
+
     return new Response(JSON.stringify({
-      tx: response.tx
+      tx: response.tx,
+      hash
     }), {
       status: 200,
       headers: {
@@ -31,14 +37,24 @@ export const action = async ({ request }: { request: Request }) => {
   if (request.method === 'PUT') {
     const payload = await request.json();
 
+
+    const decodedKey = await cbor.decodeFirst(Buffer.from(payload.sign.key, "hex"));
+    const rawPubKeyBytes = decodedKey.get(-2); // Buffer of 32 bytes
+    const publicKey = CSL.PublicKey.from_bytes(rawPubKeyBytes);
+
+    const decodedSig = await cbor.decodeFirst(Buffer.from(payload.sign.signature, "hex"));
+    const rawSigBytes = decodedSig[3]; // Buffer of 64 bytes
+    const signature = CSL.Ed25519Signature.from_bytes(rawSigBytes);
+    // console.dir(decodedSig, { depth: null });
+
+    const vKey = CSL.Vkey.new(publicKey)
+    const witness = CSL.Vkeywitness.new(vKey, signature);
+
     const fixedTx = CSL.FixedTransaction.from_hex(payload.tx)
-    const witness = CSL.Vkeywitness.from_bytes(
-      Buffer.from(payload.signature, "hex")
-    );
     fixedTx.add_vkey_witness(witness)
     const signedTx = fixedTx.to_hex();
 
-    console.log(signedTx)
+    console.log("SIGNED TX: ", signedTx)
 
     // TODO: add support for submit in trp?
     // TODO: validate errors

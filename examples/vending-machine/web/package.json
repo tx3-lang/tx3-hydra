@@ -9,9 +9,7 @@
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
-    "@emurgo/cardano-serialization-lib-browser": "^14.1.2",
     "@emurgo/cardano-serialization-lib-nodejs": "^14.1.2",
-    "@lucid-evolution/lucid": "^0.4.29",
     "@react-router/node": "^7.5.3",
     "@react-router/serve": "^7.5.3",
     "cbor": "^10.0.9",

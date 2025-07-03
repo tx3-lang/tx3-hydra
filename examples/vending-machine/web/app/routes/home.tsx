@@ -84,13 +84,15 @@ export default function Home() {
       }
 
       const payload = await response.json();
-      const signature = await connectedWallet?.signTx(payload.tx, true);
+
+      const signData = await connectedWallet?.signData(walletAddress!, payload.hash);
+      // const signature = await connectedWallet?.signTx(payload.tx, true);
 
       const responseSubmit = await fetch("/api/pay", {
         method: "PUT",
         body: JSON.stringify({
           tx: payload.tx,
-          signature
+          sign: signData
         })
       });
 
