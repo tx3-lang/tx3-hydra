@@ -21,7 +21,7 @@ export const action = async ({ request }: { request: Request }) => {
     return new Response(JSON.stringify({
       tx: response.tx
     }), {
-      status: 204,
+      status: 200,
       headers: {
         "Content-Type": "application/json",
       },
@@ -56,8 +56,16 @@ export const action = async ({ request }: { request: Request }) => {
             "version": "v1alpha5"
           }
         },
+        "id": "0"
       })
     })
+
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
   }
 
   return new Response(null, {

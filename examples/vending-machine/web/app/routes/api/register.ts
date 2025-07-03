@@ -35,10 +35,11 @@ export const action = async ({ request }: { request: Request }) => {
     // TODO: add support for submit in trp?
     // TODO: validate errors
     await fetch(TRP_URL, {
+      method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      method: "post", body: JSON.stringify({
+      body: JSON.stringify({
         "jsonrpc": "2.0",
         "method": "trp.submit",
         "params": {
@@ -48,11 +49,13 @@ export const action = async ({ request }: { request: Request }) => {
             "version": "v1alpha5"
           }
         },
+        "id": "0"
       })
     })
 
+
     return new Response(null, {
-      status: 204,
+      status: 200,
       headers: {
         "Content-Type": "application/json",
       },

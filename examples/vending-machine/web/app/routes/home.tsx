@@ -71,7 +71,6 @@ export default function Home() {
 
   const payBack = async () => {
     try {
-
       const response = await fetch("/api/pay", {
         method: "POST",
         body: JSON.stringify({
@@ -85,7 +84,7 @@ export default function Home() {
       }
 
       const payload = await response.json();
-      const signature = await connectedWallet?.signTx(payload.tx);
+      const signature = await connectedWallet?.signTx(payload.tx, true);
 
       const responseSubmit = await fetch("/api/pay", {
         method: "PUT",
