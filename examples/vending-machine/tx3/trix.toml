@@ -5,6 +5,9 @@ version = "0.0.0"
 description = ""
 main = "main.tx3"
 
+[registry]
+url = "https://registry.dgram.io"
+
 [profiles.devnet]
 chain = "CardanoDevnet"
 
