@@ -268,8 +268,8 @@ export default function Home() {
                   }
 
                   <div> {hash} </div>
-                  <div> {Object.entries(utxo.value).map(([coin, amount]) => (
-                    <span>
+                  <div> {Object.entries(utxo.value).map(([coin, amount], idx) => (
+                    <span key={`${hash}-${idx}`}>
                       {coin}: {amount}
                     </span>
                   ))}
