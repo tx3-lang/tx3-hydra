@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { getSession } from "~/sessions.server";
 
 import { Client } from "~/tx3/protocol";
+import { getAdminCredentials } from "~/utils";
 
 const TRP_URL = process.env["TRP_URL"] || "http://localhost:8164"
 
@@ -25,10 +26,10 @@ export const action = async ({ request }: { request: Request }) => {
     endpoint: TRP_URL
   });
 
-  // TODO: import from the file
-  const adminAddress = CSL.Address.from_bech32("addr_test1vz5yzy8fttld8yprtzhsz5kuwk46xs9npnfdh3ajaggm5ccyg00d6")
+  const credentials = getAdminCredentials()
+  const adminAddress = CSL.Address.from_bech32(credentials.address)
   const adminPrivateKey = CSL.PrivateKey.from_normal_bytes(
-    cbor.decode(Buffer.from("582088c48ee7d969d49a161e469added3af9c4a337064c7a79734fa1d1094decf0e4", "hex"))
+    cbor.decode(Buffer.from(credentials.privateKey, "hex"))
   );
 
   // TODO: change the params later to use mint token tx3 params

@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { getSession } from "~/sessions.server";
 
 import { Client } from "~/tx3/protocol";
+import { getAdminCredentials } from "~/utils";
 
 const TRP_URL = process.env["TRP_URL"] || "http://localhost:8164"
 
@@ -25,9 +26,10 @@ export const action = async ({ request }: { request: Request }) => {
     endpoint: TRP_URL
   });
 
+  const credentials = getAdminCredentials()
   const response = await client.transferTx({
     quantity: 1_000_000,
-    receiver: "addr_test1vz5yzy8fttld8yprtzhsz5kuwk46xs9npnfdh3ajaggm5ccyg00d6",
+    receiver: credentials.address,
     sender: sessionAddressHex
   })
 

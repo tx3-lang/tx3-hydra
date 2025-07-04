@@ -42,11 +42,14 @@ services:
     build:
       context: ./web
     restart: always
+    volumes:
+      - ./chain:/chain
     ports:
       - "8080:80"
     environment:
       - PORT=80
       - TRP_URL=http://hydra-tx3:8164
+      - ADMIN_CREDENTIAL_PATH=/chain/cardano
     networks:
       hydra_net:
 
