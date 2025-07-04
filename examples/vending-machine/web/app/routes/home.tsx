@@ -162,6 +162,7 @@ export default function Home() {
         <h1 className="text-xl font-bold mb-4">Create a Wallet</h1>
 
         <button
+          type="button"
           onClick={register}
           className={`my-4 px-4 py-2 rounded-md ${!(privateKey && address)
             ? "bg-blue-500 text-white cursor-pointer"
@@ -173,114 +174,109 @@ export default function Home() {
         </button>
 
         {
-          privateKey && address ?
-            <div>
-              <div className="space-y-2">
-                <div>
-                  <div className="font-bold">
-                    Vending Machine Address:
-                  </div>
-
-                  <div>
-                    {VM_ADDRESS}
-                  </div>
+          (privateKey && address) &&
+          <div>
+            <div className="space-y-2">
+              <div>
+                <div className="font-bold">
+                  Vending Machine Address:
                 </div>
 
                 <div>
-                  <div className="font-bold">
-                    Your Wallet Address:
-                  </div>
-                  <div>
-                    {address}
-                  </div>
+                  {VM_ADDRESS}
                 </div>
               </div>
 
-              <div className="flex justify-between">
-                <div className="flex space-x-2">
-                  <div>
-                    <button
-                      onClick={claim}
-                      className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
-                    >
-                      Claim Tokens
-                    </button>
-                  </div>
-                  <div className="space-x-1">
-
-                    <button
-                      onClick={sendTokens}
-                      className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
-                    >
-                      Send Tokens
-                    </button>
-
-                    <input
-                      type="number"
-                      id="quantityTokens"
-                      name="quantityTokens"
-                      placeholder="Quantity of tokens"
-                      className="px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent transition duration-200 shadow-sm placeholder-gray-400"
-                      value={quantityTokens}
-                      onChange={(e) => {
-                        const parsed = parseFloat(e.target.value);
-                        if (!isNaN(parsed)) {
-                          setQuantityTokens(parsed)
-                        } else {
-                          setQuantityTokens(undefined)
-                        }
-                      }}
-                    />
-                  </div>
+              <div>
+                <div className="font-bold">
+                  Your Wallet Address:
                 </div>
-
                 <div>
-                  <button
-                    onClick={loadUtxos}
-                    className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
-                  >
-                    Refresh Utxos
-                  </button>
+                  {address}
                 </div>
               </div>
             </div>
-            : <></>
+
+            <div className="flex justify-between">
+              <div className="flex space-x-2">
+                <div>
+                  <button
+                    type="button"
+                    onClick={claim}
+                    className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
+                  >
+                    Claim Tokens
+                  </button>
+                </div>
+                <div className="space-x-1">
+
+                  <button
+                    type="button"
+                    onClick={sendTokens}
+                    className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
+                  >
+                    Send Tokens
+                  </button>
+
+                  <input
+                    type="number"
+                    id="quantityTokens"
+                    name="quantityTokens"
+                    placeholder="Quantity of tokens"
+                    className="px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent transition duration-200 shadow-sm placeholder-gray-400"
+                    value={quantityTokens}
+                    onChange={(e) => {
+                      const parsed = parseFloat(e.target.value);
+                      if (!isNaN(parsed)) {
+                        setQuantityTokens(parsed)
+                      } else {
+                        setQuantityTokens(undefined)
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={loadUtxos}
+                  className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
+                >
+                  Refresh Utxos
+                </button>
+              </div>
+            </div>
+          </div>
         }
 
         <div>
           <h2 className="my-4 text-lg font-bold"> Utxos </h2>
           {
-            utxos
-              ?
-              Object.entries(utxos).map(([hash, utxo]) => {
-                return (
-                  <div className="bg-gray-800/40 rounded-md my-2 p-2">
-                    {
-                      utxo.address == address
-                        ?
-                        <div className="bg-green-600 w-10 flex justify-center rounded-md text-sm font-semibold mb-2"> own </div>
-                        :
-                        <></>
-                    }
+            utxos &&
+            Object.entries(utxos).map(([hash, utxo]) => {
+              return (
+                <div className="bg-gray-800/40 rounded-md my-2 p-2">
+                  {
+                    utxo.address == address &&
+                    <div className="bg-green-600 w-10 flex justify-center rounded-md text-sm font-semibold mb-2"> own </div>
+                  }
 
-                    {
-                      utxo.address == VM_ADDRESS
-                        ?
-                        <div className="bg-blue-600 w-32 flex justify-center rounded-md text-sm font-semibold mb-2"> Vending Machine </div>
-                        :
-                        <></>
-                    }
+                  {
+                    utxo.address == VM_ADDRESS &&
+                    <div className="bg-blue-600 w-32 flex justify-center rounded-md text-sm font-semibold mb-2"> Vending Machine </div>
+                  }
 
-                    <div> {hash} </div>
-                    <div> {Object.entries(utxo.value).map(([coin, amount]) => (
-                      <span>
-                        {coin}: {amount}
-                      </span>
-                    ))}  </div>
+                  <div> {hash} </div>
+                  <div> {Object.entries(utxo.value).map(([coin, amount]) => (
+                    <span>
+                      {coin}: {amount}
+                    </span>
+                  ))}
                   </div>
-                )
-              })
-              : <></>
+                </div>
+              )
+            })
           }
         </div>
 
