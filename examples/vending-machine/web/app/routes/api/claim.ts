@@ -1,4 +1,5 @@
 import * as CSL from "@emurgo/cardano-serialization-lib-nodejs"
+import cbor from "cbor"
 import { randomUUID } from "crypto";
 import { getSession } from "~/sessions.server";
 
@@ -19,20 +20,26 @@ export const action = async ({ request }: { request: Request }) => {
   }
 
   const sessionAddressHex = session.get("address")!;
-  const sessionPrivateKey = CSL.PrivateKey.from_hex(session.get("privateKey")!);
 
   const client = new Client({
     endpoint: TRP_URL
   });
 
+  // TODO: import from the file
+  const adminAddress = CSL.Address.from_bech32("addr_test1vz5yzy8fttld8yprtzhsz5kuwk46xs9npnfdh3ajaggm5ccyg00d6")
+  const adminPrivateKey = CSL.PrivateKey.from_normal_bytes(
+    cbor.decode(Buffer.from("582088c48ee7d969d49a161e469added3af9c4a337064c7a79734fa1d1094decf0e4", "hex"))
+  );
+
+  // TODO: change the params later to use mint token tx3 params
   const response = await client.transferTx({
-    quantity: 1_000_000,
-    receiver: "addr_test1vz5yzy8fttld8yprtzhsz5kuwk46xs9npnfdh3ajaggm5ccyg00d6",
-    sender: sessionAddressHex
+    quantity: 2_000_000,
+    receiver: sessionAddressHex,
+    sender: adminAddress.to_hex()
   })
 
   const fixedTx = CSL.FixedTransaction.from_hex(response.tx)
-  fixedTx.sign_and_add_vkey_signature(sessionPrivateKey);
+  fixedTx.sign_and_add_vkey_signature(adminPrivateKey);
   const signedTx = fixedTx.to_hex();
 
   // TODO: add support for submit in trp?
@@ -55,6 +62,7 @@ export const action = async ({ request }: { request: Request }) => {
       "id": randomUUID()
     })
   })
+
 
   return new Response(null, {
     status: 200,

@@ -1,81 +1,53 @@
 import type { Route } from "./+types/home";
 import { useEffect, useState } from "react";
 
-import type { CardanoWalletInfo, CardanoWalletAPI } from "../@types/cardano";
 import { toast } from "react-toastify";
 
 export function meta({ }: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "Hydra Tx3 example" },
+    { name: "description", content: "Welcome to Hydra Tx3 example!" },
   ];
 }
 
 export default function Home() {
-  const [connectedWallet, setConnectedWallet] =
-    useState<CardanoWalletAPI | null>(null);
-  const [connectedWalletInfo, setConnectedWalletInfo] =
-    useState<CardanoWalletInfo | null>(null);
-  const [wallets, setWallets] = useState<CardanoWalletInfo[]>([]);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [address, setAddress] = useState(null);
+  const [registerLoading, setRegisterLoading] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.cardano) {
-      const loadedWallets: CardanoWalletInfo[] = Object.entries(
-        window.cardano
-      ).map(([_, wallet]) => wallet);
-      setWallets(loadedWallets);
-    }
-  }, []);
-
-  useEffect(() => {
-    const getAddress = async () => {
-      if (connectedWallet) {
-        const hexAddress = await connectedWallet.getChangeAddress();
-        setWalletAddress(hexAddress);
-      } else {
-        setWalletAddress(null);
-      }
+    const checkSession = async () => {
+      const response = await fetch("/api/check-session");
+      const { isRegistered, address } = await response.json();
+      setIsRegistered(isRegistered);
+      setAddress(address);
     };
 
-    getAddress();
-  }, [connectedWallet]);
-
-  const connectWallet = async (walletInfo: CardanoWalletInfo) => {
-    try {
-      const api = await walletInfo.enable();
-      setConnectedWallet(api);
-      setConnectedWalletInfo(walletInfo);
-      console.log("Wallet connected:", walletInfo.name);
-    } catch (error) {
-      console.error("Error connecting wallet:", error);
-    }
-  };
+    checkSession();
+  }, []);
 
   const register = async () => {
-    const response = await fetch("/api/register", {
-      method: "POST",
-      body: JSON.stringify({
-        address: walletAddress
-      })
-    });
+    setRegisterLoading(true)
+    const response = await fetch("/api/register");
 
     if (response.ok) {
-      toast.success("Transaction done");
+      toast.success("Wallet registered");
+      setIsRegistered(true);
+      setRegisterLoading(false)
+
+      const payload = await response.json()
+      setAddress(payload.address);
       return
     }
 
-    toast.error("Transaction fail");
+    toast.error("Fail to register a wallet");
+    setRegisterLoading(false)
   };
 
-  const payBack = async () => {
+  const claim = async () => {
     try {
-      const response = await fetch("/api/pay", {
+      const response = await fetch("/api/claim", {
         method: "POST",
-        body: JSON.stringify({
-          address: walletAddress
-        })
       });
 
       if (!response.ok) {
@@ -83,20 +55,21 @@ export default function Home() {
         return
       }
 
-      const payload = await response.json();
+      toast.success("Transaction done");
 
-      const signData = await connectedWallet?.signData(walletAddress!, payload.hash);
-      // const signature = await connectedWallet?.signTx(payload.tx, true);
+    } catch (err) {
+      console.error(err)
+      toast.error("Transaction fail");
+    }
+  };
 
-      const responseSubmit = await fetch("/api/pay", {
-        method: "PUT",
-        body: JSON.stringify({
-          tx: payload.tx,
-          sign: signData
-        })
+  const payBack = async () => {
+    try {
+      const response = await fetch("/api/pay", {
+        method: "POST",
       });
 
-      if (!responseSubmit.ok) {
+      if (!response.ok) {
         toast.error("Transaction fail");
         return
       }
@@ -111,54 +84,48 @@ export default function Home() {
 
   return (
     <>
-
       <div className="container mx-auto p-4">
-        <h1 className="text-xl font-bold mb-4">Connect Wallet</h1>
+        <h1 className="text-xl font-bold mb-4">Create a Wallet</h1>
 
-        <div className="flex space-x-2 mb-4">
-          {wallets.map((w: CardanoWalletInfo) => (
-            <button
-              key={w.name}
-              onClick={() => connectWallet(w)}
-              className={`flex space-x-2 px-12 py-2 rounded-md ${connectedWalletInfo?.name == w.name
-                ? "bg-green-500/50"
-                : "bg-gray-500/50"
-                }`}
-              disabled={!!connectedWalletInfo}
-            >
-              <img src={w.icon} alt={`${w.name} icon`} width="24" height="24" />
-              <span>{w.name}</span>
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={register}
+          className={`my-4 px-4 py-2 rounded-md ${!isRegistered
+            ? "bg-blue-500 text-white cursor-pointer"
+            : "bg-gray-500/50 cursor-not-allowed"
+            }`}
+          disabled={isRegistered || registerLoading}
+        >
+          Register
+        </button>
 
-        <div>{walletAddress}</div>
+        {
+          isRegistered ?
+            <div>
+              <div>
+                Your wallet address:
+                <div>
+                  {address}
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={claim}
+                  className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer"
+                >
+                  Claim
+                </button>
 
-        <div className="flex space-x-2">
-          <button
-            onClick={register}
-            className={`mt-4 px-4 py-2 rounded-md ${walletAddress
-              ? "bg-blue-500 text-white cursor-pointer"
-              : "bg-gray-500/50 cursor-not-allowed"
-              }`}
-            disabled={!walletAddress}
-          >
-            Register
-          </button>
-
-          <button
-            onClick={payBack}
-            className={`mt-4 px-4 py-2 rounded-md ${walletAddress
-              ? "bg-blue-500 text-white cursor-pointer"
-              : "bg-gray-500/50 cursor-not-allowed"
-              }`}
-            disabled={!walletAddress}
-          >
-            Pay back
-          </button>
-        </div>
+                <button
+                  onClick={payBack}
+                  className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer"
+                >
+                  Pay back
+                </button>
+              </div>
+            </div>
+            : <></>
+        }
       </div>
     </>
   );
 }
-

@@ -1,69 +1,41 @@
 import * as CSL from "@emurgo/cardano-serialization-lib-nodejs"
-import cbor from "cbor"
+import { getSession, commitSession } from "~/sessions.server"; // Assuming sessions.server.ts is in the app directory
+import type { Route } from "../+types/home";
 
-import { Client } from "~/tx3/protocol";
+export async function loader({ request }: Route.LoaderArgs) {
+  const session = await getSession(request.headers.get("Cookie"));
 
-const TRP_URL = process.env["TRP_URL"] || "http://localhost:8164"
-
-export const action = async ({ request }: { request: Request }) => {
-  if (request.method === 'POST') {
-    const payload = await request.json();
-
-    const client = new Client({
-      endpoint: TRP_URL
-    });
-
-    // TODO: import from the file
-    const address = CSL.Address.from_bech32("addr_test1vz5yzy8fttld8yprtzhsz5kuwk46xs9npnfdh3ajaggm5ccyg00d6")
-    const privateKey = CSL.PrivateKey.from_normal_bytes(
-      cbor.decode(Buffer.from("582088c48ee7d969d49a161e469added3af9c4a337064c7a79734fa1d1094decf0e4", "hex"))
-    );
-
-    // TODO: change the params later to use mint token tx3 params
-    const response = await client.transferTx({
-      quantity: 1000000,
-      receiver: payload.address,
-      sender: address.to_hex()
-    })
-
-    const fixedTx = CSL.FixedTransaction.from_hex(response.tx)
-    fixedTx.sign_and_add_vkey_signature(privateKey);
-    const signedTx = fixedTx.to_hex();
-
-    console.log(signedTx)
-
-    // TODO: add support for submit in trp?
-    // TODO: validate errors
-    await fetch(TRP_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        "jsonrpc": "2.0",
-        "method": "trp.submit",
-        "params": {
-          "tx": {
-            "payload": signedTx,
-            "encoding": "hex",
-            "version": "v1alpha5"
-          }
-        },
-        "id": "0"
-      })
-    })
-
-
-    return new Response(null, {
-      status: 200,
+  if (session.has("privateKey")) {
+    return new Response(JSON.stringify({ message: "Wallet already registered" }), {
+      status: 400,
       headers: {
         "Content-Type": "application/json",
       },
     });
   }
 
-  return new Response(null, {
-    status: 404,
-    statusText: "Not found",
+  const privateKey = CSL.PrivateKey.generate_ed25519()
+  const publicKey = privateKey.to_public();
+  const address = CSL.BaseAddress.new(
+    CSL.NetworkInfo.testnet_preview().network_id(),
+    CSL.Credential.from_keyhash(publicKey.hash()),
+    CSL.Credential.from_keyhash(publicKey.hash())
+  ).to_address();
+
+
+  session.set("privateKey", privateKey.to_hex());
+  session.set("address", address.to_hex());
+
+  const response = {
+    address: address.to_bech32(),
+  }
+
+  return new Response(JSON.stringify(response), {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": await commitSession(session),
+    },
   });
-};
+}
+
