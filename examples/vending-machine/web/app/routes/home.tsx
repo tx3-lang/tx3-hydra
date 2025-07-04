@@ -1,5 +1,5 @@
 import type { Route } from "./+types/home";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { toast } from "react-toastify";
 import { Client } from "~/tx3/protocol";
@@ -15,17 +15,16 @@ export function meta({ }: Route.MetaArgs) {
 }
 
 export default function Home() {
-  let CSL: typeof import('@emurgo/cardano-serialization-lib-browser')
-
   const [address, setAddress] = useState<string>();
   const [privateKey, setPrivateKey] = useState<string>();
   const [quantityTokens, setQuantityTokens] = useState<number>();
   const [utxos, setUtxos] = useState<object>();
 
+  const CSL = useRef<typeof import('@emurgo/cardano-serialization-lib-browser') | null>(null);
   async function loadCardanoWasm() {
-    if (!CSL) {
-      CSL = await import('@emurgo/cardano-serialization-lib-browser')
-      console.log("Cardano WASM loaded:", CSL)
+    if (!CSL.current) {
+      CSL.current = await import('@emurgo/cardano-serialization-lib-browser')
+      console.log("Cardano WASM loaded:", CSL.current)
     }
   }
 
@@ -57,13 +56,13 @@ export default function Home() {
       return
     }
 
-    const privateKey = CSL.PrivateKey.generate_ed25519();
+    const privateKey = CSL.current!.PrivateKey.generate_ed25519();
     const publicKey = privateKey.to_public();
 
-    const address = CSL.BaseAddress.new(
-      CSL.NetworkInfo.testnet_preview().network_id(),
-      CSL.Credential.from_keyhash(publicKey.hash()),
-      CSL.Credential.from_keyhash(publicKey.hash())
+    const address = CSL.current!.BaseAddress.new(
+      CSL.current!.NetworkInfo.testnet_preview().network_id(),
+      CSL.current!.Credential.from_keyhash(publicKey.hash()),
+      CSL.current!.Credential.from_keyhash(publicKey.hash())
     ).to_address();
 
     localStorage.setItem("privateKey", privateKey.to_hex());
@@ -122,8 +121,8 @@ export default function Home() {
 
       console.info("TX CBOR: ", response.tx)
 
-      const fixedTx = CSL.FixedTransaction.from_hex(response.tx)
-      fixedTx.sign_and_add_vkey_signature(CSL.PrivateKey.from_hex(privateKey!));
+      const fixedTx = CSL.current!.FixedTransaction.from_hex(response.tx)
+      fixedTx.sign_and_add_vkey_signature(CSL.current!.PrivateKey.from_hex(privateKey!));
       const signedTx = fixedTx.to_hex();
 
       const responseSubmit = await fetch(TRP_URL, {
