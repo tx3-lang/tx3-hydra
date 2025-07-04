@@ -1,7 +1,6 @@
 import * as CSL from "@emurgo/cardano-serialization-lib-nodejs"
 import cbor from "cbor"
 import { randomUUID } from "crypto";
-import { getSession } from "~/sessions.server";
 
 import { Client } from "~/tx3/protocol";
 import { getAdminCredentials } from "~/utils";
@@ -9,18 +8,7 @@ import { getAdminCredentials } from "~/utils";
 const TRP_URL = process.env["TRP_URL"] || "http://localhost:8164"
 
 export const action = async ({ request }: { request: Request }) => {
-  const session = await getSession(request.headers.get("Cookie"));
-
-  if (!session.has("privateKey")) {
-    return new Response(JSON.stringify({ message: "Register a wallet first" }), {
-      status: 406,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  }
-
-  const sessionAddressHex = session.get("address")!;
+  const payload = await request.json();
 
   const client = new Client({
     endpoint: TRP_URL
@@ -35,7 +23,7 @@ export const action = async ({ request }: { request: Request }) => {
   // TODO: change the params later to use mint token tx3 params
   const response = await client.transferTx({
     quantity: 2_000_000,
-    receiver: sessionAddressHex,
+    receiver: payload.address,
     sender: adminAddress.to_hex()
   })
 

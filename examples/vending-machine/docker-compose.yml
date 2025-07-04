@@ -50,6 +50,8 @@ services:
       - PORT=80
       - TRP_URL=http://hydra-tx3:8164
       - ADMIN_CREDENTIAL_PATH=/chain/cardano
+      - VITE_TRP_URL="http://localhost:8164"
+      - VITE_VM_ADDRESS="addr_test1vpg24ht6y8p6500k56hh9q0994rdvn2xulnul7a6w0yx4mg68vswg"
     networks:
       hydra_net:
 

@@ -1,11 +1,9 @@
 import fs from 'fs';
-import path from 'path';
 
 interface AdminCredentials {
   privateKey: string;
   address: string;
 }
-
 
 const ADMIN_CREDENTIAL_PATH = process.env["ADMIN_CREDENTIAL_PATH"] || "../chain/cardano"
 

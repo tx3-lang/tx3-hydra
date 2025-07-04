@@ -2,6 +2,10 @@ import type { Route } from "./+types/home";
 import { useEffect, useState } from "react";
 
 import { toast } from "react-toastify";
+import { Client } from "~/tx3/protocol";
+
+const TRP_URL = import.meta.env.VITE_TRP_URL
+const VM_ADDRESS = import.meta.env.VITE_VM_ADDRESS
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -11,74 +15,145 @@ export function meta({ }: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const [isRegistered, setIsRegistered] = useState(false);
-  const [address, setAddress] = useState(null);
-  const [registerLoading, setRegisterLoading] = useState(false);
+  let CSL: typeof import('@emurgo/cardano-serialization-lib-browser')
+
+  const [address, setAddress] = useState<string>();
+  const [privateKey, setPrivateKey] = useState<string>();
+  const [quantityTokens, setQuantityTokens] = useState<number>();
+  const [utxos, setUtxos] = useState<object>();
+
+  async function loadCardanoWasm() {
+    if (!CSL) {
+      CSL = await import('@emurgo/cardano-serialization-lib-browser')
+      console.log("Cardano WASM loaded:", CSL)
+    }
+  }
 
   useEffect(() => {
-    const checkSession = async () => {
-      const response = await fetch("/api/check-session");
-      const { isRegistered, address } = await response.json();
-      setIsRegistered(isRegistered);
-      setAddress(address);
-    };
+    loadUtxos();
 
-    checkSession();
+    const privateKey = localStorage.getItem("privateKey");
+    const address = localStorage.getItem("address");
+
+    if (privateKey && address) {
+      setPrivateKey(privateKey);
+      setAddress(address);
+    }
+
   }, []);
 
-  const register = async () => {
-    setRegisterLoading(true)
-    const response = await fetch("/api/register");
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadUtxos()
+    }, 2000);
 
-    if (response.ok) {
-      toast.success("Wallet registered");
-      setIsRegistered(true);
-      setRegisterLoading(false)
+    return () => clearInterval(interval);
+  }, []);
 
-      const payload = await response.json()
-      setAddress(payload.address);
+  async function register() {
+    await loadCardanoWasm();
+
+    if (localStorage.getItem("privateKey")) {
       return
     }
 
-    toast.error("Fail to register a wallet");
-    setRegisterLoading(false)
-  };
+    const privateKey = CSL.PrivateKey.generate_ed25519();
+    const publicKey = privateKey.to_public();
 
-  const claim = async () => {
-    try {
-      const response = await fetch("/api/claim", {
-        method: "POST",
-      });
+    const address = CSL.BaseAddress.new(
+      CSL.NetworkInfo.testnet_preview().network_id(),
+      CSL.Credential.from_keyhash(publicKey.hash()),
+      CSL.Credential.from_keyhash(publicKey.hash())
+    ).to_address();
 
-      if (!response.ok) {
-        toast.error("Transaction fail");
-        return
-      }
+    localStorage.setItem("privateKey", privateKey.to_hex());
+    localStorage.setItem("address", address.to_bech32());
 
-      toast.success("Transaction done");
+    setPrivateKey(privateKey.to_hex());
+    setAddress(address.to_bech32());
+  }
 
-    } catch (err) {
-      console.error(err)
-      toast.error("Transaction fail");
+  async function loadUtxos() {
+    const response = await fetch("/api/utxos");
+
+    if (!response.ok) {
+      return
     }
+
+    const utxos = await response.json()
+    setUtxos(utxos)
   };
 
-  const payBack = async () => {
-    try {
-      const response = await fetch("/api/pay", {
-        method: "POST",
-      });
 
-      if (!response.ok) {
-        toast.error("Transaction fail");
+  async function claim() {
+    const response = await fetch("/api/claim", {
+      method: "POST",
+      body: JSON.stringify({
+        address
+      })
+    });
+
+    if (!response.ok) {
+      toast.error("Claim Transaction fail");
+      return
+    }
+
+    toast.success("Claim Transaction submitted");
+  };
+
+  async function sendTokens() {
+    try {
+      if (!quantityTokens || quantityTokens < 1) {
+        toast.warning("Type a quantity of tokens to send");
         return
       }
 
-      toast.success("Transaction done");
+      await loadCardanoWasm();
 
+      const client = new Client({
+        endpoint: TRP_URL
+      });
+
+      const response = await client.transferTx({
+        quantity: quantityTokens,
+        receiver: VM_ADDRESS,
+        sender: address!
+      })
+
+      console.info("TX CBOR: ", response.tx)
+
+      const fixedTx = CSL.FixedTransaction.from_hex(response.tx)
+      fixedTx.sign_and_add_vkey_signature(CSL.PrivateKey.from_hex(privateKey!));
+      const signedTx = fixedTx.to_hex();
+
+      const responseSubmit = await fetch(TRP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          "jsonrpc": "2.0",
+          "method": "trp.submit",
+          "params": {
+            "tx": {
+              "payload": signedTx,
+              "encoding": "hex",
+              "version": "v1alpha5"
+            }
+          },
+          "id": "0"
+        })
+      })
+
+      if (!responseSubmit.ok) {
+        toast.error("Send Tokens Transaction fail");
+        return
+      }
+
+      toast.success("Send Tokens Transaction submitted");
     } catch (err) {
       console.error(err)
-      toast.error("Transaction fail");
+      toast.error("Send Tokens Transaction fail");
     }
   };
 
@@ -89,42 +164,127 @@ export default function Home() {
 
         <button
           onClick={register}
-          className={`my-4 px-4 py-2 rounded-md ${!isRegistered
+          className={`my-4 px-4 py-2 rounded-md ${!(privateKey && address)
             ? "bg-blue-500 text-white cursor-pointer"
             : "bg-gray-500/50 cursor-not-allowed"
             }`}
-          disabled={isRegistered || registerLoading}
+          disabled={!!(privateKey && address)}
         >
           Register
         </button>
 
         {
-          isRegistered ?
+          privateKey && address ?
             <div>
-              <div>
-                Your wallet address:
+              <div className="space-y-2">
                 <div>
-                  {address}
+                  <div className="font-bold">
+                    Vending Machine Address:
+                  </div>
+
+                  <div>
+                    {VM_ADDRESS}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="font-bold">
+                    Your Wallet Address:
+                  </div>
+                  <div>
+                    {address}
+                  </div>
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={claim}
-                  className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer"
-                >
-                  Claim
-                </button>
 
-                <button
-                  onClick={payBack}
-                  className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer"
-                >
-                  Pay back
-                </button>
+              <div className="flex justify-between">
+                <div className="flex space-x-2">
+                  <div>
+                    <button
+                      onClick={claim}
+                      className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
+                    >
+                      Claim Tokens
+                    </button>
+                  </div>
+                  <div className="space-x-1">
+
+                    <button
+                      onClick={sendTokens}
+                      className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
+                    >
+                      Send Tokens
+                    </button>
+
+                    <input
+                      type="number"
+                      id="quantityTokens"
+                      name="quantityTokens"
+                      placeholder="Quantity of tokens"
+                      className="px-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent transition duration-200 shadow-sm placeholder-gray-400"
+                      value={quantityTokens}
+                      onChange={(e) => {
+                        const parsed = parseFloat(e.target.value);
+                        if (!isNaN(parsed)) {
+                          setQuantityTokens(parsed)
+                        } else {
+                          setQuantityTokens(undefined)
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    onClick={loadUtxos}
+                    className="mt-4 px-4 py-2 rounded-md bg-blue-500 text-white cursor-pointer border border-blue-500"
+                  >
+                    Refresh Utxos
+                  </button>
+                </div>
               </div>
             </div>
             : <></>
         }
+
+        <div>
+          <h2 className="my-4 text-lg font-bold"> Utxos </h2>
+          {
+            utxos
+              ?
+              Object.entries(utxos).map(([hash, utxo]) => {
+                return (
+                  <div className="bg-gray-800/40 rounded-md my-2 p-2">
+                    {
+                      utxo.address == address
+                        ?
+                        <div className="bg-green-600 w-10 flex justify-center rounded-md text-sm font-semibold mb-2"> own </div>
+                        :
+                        <></>
+                    }
+
+                    {
+                      utxo.address == VM_ADDRESS
+                        ?
+                        <div className="bg-blue-600 w-32 flex justify-center rounded-md text-sm font-semibold mb-2"> Vending Machine </div>
+                        :
+                        <></>
+                    }
+
+                    <div> {hash} </div>
+                    <div> {Object.entries(utxo.value).map(([coin, amount]) => (
+                      <span>
+                        {coin}: {amount}
+                      </span>
+                    ))}  </div>
+                  </div>
+                )
+              })
+              : <></>
+          }
+        </div>
+
       </div>
     </>
   );
