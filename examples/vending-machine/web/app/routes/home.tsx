@@ -256,7 +256,7 @@ export default function Home() {
             utxos &&
             Object.entries(utxos).map(([hash, utxo]) => {
               return (
-                <div className="bg-gray-800/40 rounded-md my-2 p-2">
+                <div className="bg-gray-800/40 rounded-md my-2 p-2" key={hash}>
                   {
                     utxo.address == address &&
                     <div className="bg-green-600 w-10 flex justify-center rounded-md text-sm font-semibold mb-2"> own </div>
