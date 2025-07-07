@@ -1,0 +1,62 @@
+version: "3"
+services:
+  hydra-node:
+    container_name: hydra-node
+    image: ghcr.io/cardano-scaling/hydra-node:0.22.2
+    restart: always
+    command:
+      [ "--api-host", "0.0.0.0"
+      , "--monitoring-port", "6001"
+      , "--hydra-signing-key", "/chain/hydra/user.sk"
+      , "--ledger-protocol-parameters", "/chain/protocol-parameters.json"
+      , "--offline-head-seed", "0001"
+      , "--initial-utxo", "/chain/utxo.json"
+      ]
+    ports:
+      - "6001:6001"
+      - "4001:4001"
+    volumes:
+      - ./chain:/chain
+    networks:
+      hydra_net:
+
+  hydra-tx3:
+    container_name: hydra-tx3
+    image: ghcr.io/tx3-lang/tx3-hydra:16ce694c1c469e12e45818631d0c455b013bdcca
+    build:
+      context: ../../
+    restart: always
+    depends_on:
+      - hydra-node
+    ports:
+      - "8164:8164"
+    environment:
+      - RUST_LOG=debug
+    volumes:
+      - ./chain/tx3.toml:/etc/tx3hydra/config.toml
+    networks:
+      hydra_net:
+
+  vending-machine:
+    container_name: vending-machine
+    build:
+      context: ./web
+      args:
+      - VITE_TRP_URL="http://localhost:8164"
+      - VITE_VM_ADDRESS="addr_test1vpg24ht6y8p6500k56hh9q0994rdvn2xulnul7a6w0yx4mg68vswg"
+    restart: always
+    volumes:
+      - ./chain:/chain
+    ports:
+      - "8080:80"
+    environment:
+      - PORT=80
+      - TRP_URL=http://hydra-tx3:8164
+      - HYDRA_URL=http://hydra-node:4001
+      - ADMIN_CREDENTIAL_PATH=/chain/cardano
+    networks:
+      hydra_net:
+
+networks:
+  hydra_net:
+    driver: bridge
