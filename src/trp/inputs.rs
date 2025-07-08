@@ -122,7 +122,14 @@ fn utxo_matches(
     utxo: &Utxo,
     criteria: &tx3_lang::ir::InputQuery,
 ) -> Result<bool, tx3_cardano::Error> {
-    utxo_matches_min_amount(utxo, &criteria.min_amount)
+    let min_amount_check = if let Some(min_amount) = &criteria.min_amount.as_option() {
+        utxo_matches_min_amount(utxo, min_amount)?
+    } else {
+        // if there is no min amount requirement, then the utxo matches
+        true
+    };
+
+    Ok(min_amount_check)
 }
 
 fn pick_first_utxo_match(
@@ -229,17 +236,32 @@ impl InputSelector {
         &self,
         criteria: &tx3_lang::ir::InputQuery,
     ) -> Result<Subset, tx3_cardano::Error> {
-        let matching_address = self.narrow_by_address(&criteria.address)?;
+        let matching_address = if let Some(address) = &criteria.address.as_option() {
+            self.narrow_by_address(address)?
+        } else {
+            Subset::All
+        };
+
         if matching_address.is_empty() {
             debug!("matching address is empty");
         }
 
-        let matching_assets = self.narrow_by_multi_asset_presence(&criteria.min_amount)?;
+        let matching_assets = if let Some(min_amount) = &criteria.min_amount.as_option() {
+            self.narrow_by_multi_asset_presence(min_amount)?
+        } else {
+            Subset::All
+        };
+
         if matching_assets.is_empty() {
             debug!("matching assets is empty");
         }
 
-        let matching_refs = self.narrow_by_ref(&criteria.r#ref)?;
+        let matching_refs = if let Some(refs) = &criteria.r#ref.as_option() {
+            self.narrow_by_ref(refs)?
+        } else {
+            Subset::All
+        };
+
         if matching_refs.is_empty() {
             debug!("matching refs is empty");
         }
