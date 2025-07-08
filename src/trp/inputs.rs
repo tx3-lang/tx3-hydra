@@ -236,7 +236,7 @@ impl InputSelector {
         &self,
         criteria: &tx3_lang::ir::InputQuery,
     ) -> Result<Subset, tx3_cardano::Error> {
-        let matching_address = if let Some(address) = &criteria.address {
+        let matching_address = if let Some(address) = &criteria.address.as_option() {
             self.narrow_by_address(address)?
         } else {
             Subset::All
@@ -246,7 +246,7 @@ impl InputSelector {
             debug!("matching address is empty");
         }
 
-        let matching_assets = if let Some(min_amount) = &criteria.min_amount {
+        let matching_assets = if let Some(min_amount) = &criteria.min_amount.as_option() {
             self.narrow_by_multi_asset_presence(min_amount)?
         } else {
             Subset::All
@@ -256,7 +256,7 @@ impl InputSelector {
             debug!("matching assets is empty");
         }
 
-        let matching_refs = if let Some(refs) = &criteria.r#ref {
+        let matching_refs = if let Some(refs) = &criteria.r#ref.as_option() {
             self.narrow_by_ref(refs)?
         } else {
             Subset::All

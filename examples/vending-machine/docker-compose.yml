@@ -22,7 +22,7 @@ services:
 
   hydra-tx3:
     container_name: hydra-tx3
-    image: ghcr.io/tx3-lang/tx3-hydra:16ce694c1c469e12e45818631d0c455b013bdcca
+    image: ghcr.io/tx3-lang/tx3-hydra:7ec225121e4ccbc6dc34b6500d908923a3e03325
     build:
       context: ../../
     restart: always
