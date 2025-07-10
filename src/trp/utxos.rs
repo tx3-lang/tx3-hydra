@@ -8,7 +8,7 @@ use tx3_cardano::pallas::{
 };
 use tx3_lang::ir::{Expression, StructExpr};
 
-use crate::hydra::data::{TxID, Utxo};
+use crate::hydra::data::{AssetValue, TxID, Utxo};
 
 pub fn into_tx3_utxo(hydra_utxo: (TxID, Utxo)) -> anyhow::Result<tx3_lang::Utxo> {
     let (tx_id, utxo) = hydra_utxo;
@@ -53,24 +53,28 @@ pub fn into_tx3_utxo(hydra_utxo: (TxID, Utxo)) -> anyhow::Result<tx3_lang::Utxo>
         .value
         .assets
         .iter()
-        .map(|(unit, amount)| {
-            let mut asset_expr = tx3_lang::ir::AssetExpr {
-                amount: tx3_lang::ir::Expression::Number(*amount as i128),
-                policy: tx3_lang::ir::Expression::None,
-                asset_name: tx3_lang::ir::Expression::None,
-            };
-
-            if unit != "lovelace" {
-                let policy_id_hex = &unit[..56];
-                let policy_id = hex::decode(policy_id_hex).unwrap();
-                asset_expr.policy = tx3_lang::ir::Expression::Bytes(policy_id);
-
-                let asset_name_hex = &unit[56..];
-                let asset_name = hex::decode(asset_name_hex).unwrap();
-                asset_expr.asset_name = tx3_lang::ir::Expression::Bytes(asset_name);
+        .flat_map(|(key, asset)| match asset {
+            AssetValue::Lovelace(amount) => {
+                vec![tx3_lang::ir::AssetExpr {
+                    amount: tx3_lang::ir::Expression::Number(*amount as i128),
+                    policy: tx3_lang::ir::Expression::None,
+                    asset_name: tx3_lang::ir::Expression::None,
+                }]
             }
 
-            asset_expr
+            AssetValue::Multi(assets) => {
+                let policy_id = hex::decode(key).unwrap();
+                assets
+                    .iter()
+                    .map(|(asset_name, amount)| tx3_lang::ir::AssetExpr {
+                        amount: tx3_lang::ir::Expression::Number(*amount as i128),
+                        policy: tx3_lang::ir::Expression::Bytes(policy_id.clone()),
+                        asset_name: tx3_lang::ir::Expression::Bytes(
+                            hex::decode(asset_name).unwrap(),
+                        ),
+                    })
+                    .collect()
+            }
         })
         .collect();
 

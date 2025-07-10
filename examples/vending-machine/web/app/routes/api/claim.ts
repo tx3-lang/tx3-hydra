@@ -20,18 +20,10 @@ export const action = async ({ request }: { request: Request }) => {
     cbor.decode(Buffer.from(credentials.privateKey, "hex"))
   );
 
-  // TODO: change the params later to use mint token tx3 params
-  // const response = await client.transferTx({
-  //   quantity: 2_000_000,
-  //   receiver: payload.address,
-  //   sender: adminAddress.to_hex()
-  // })
-
   const response = await client.mintFromScriptTx({
-    quantity: 2,
-    minter: adminAddress.to_hex()
-    // receiver: payload.address,
-    // sender: adminAddress.to_hex()
+    quantity: 1,
+    minter: adminAddress.to_hex(),
+    receiver: payload.address
   })
 
   const fixedTx = CSL.FixedTransaction.from_hex(response.tx)

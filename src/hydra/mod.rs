@@ -61,14 +61,17 @@ impl HydraAdapter {
 
                 match serde_json::from_str::<Event>(message.to_text().unwrap()) {
                     Ok(event) => match event {
-                        Event::Snapshot { snapshot } => {
+                        Event::Greetings {
+                            head_status,
+                            snapshot,
+                        } => {
+                            info!(utxos = snapshot.len(), "Greetings event");
+                            self.ledger.write().await.update(snapshot);
+                            *self.head_status.write().await = head_status;
+                        }
+                        Event::SnapshotConfirmed { snapshot } => {
                             info!(utxos = snapshot.utxo.len(), "Snapshot updated");
                             self.ledger.write().await.update(snapshot.utxo);
-                        }
-                        Event::Bootstrap { head_status, utxo } => {
-                            info!(utxos = utxo.len(), "Bootstrap done");
-                            self.ledger.write().await.update(utxo);
-                            *self.head_status.write().await = head_status;
                         }
                     },
 

@@ -90,7 +90,7 @@ fn utxo_includes_lovelace_amount(
     amount: &tx3_lang::ir::Expression,
 ) -> Result<bool, tx3_cardano::Error> {
     let expected = tx3_cardano::coercion::expr_into_number(amount)?;
-    Ok(utxo.value.coin() >= expected)
+    Ok(utxo.value.lovelace() >= expected)
 }
 
 fn utxo_matches_min_amount(
@@ -122,7 +122,7 @@ fn utxo_matches(
     utxo: &Utxo,
     criteria: &tx3_lang::ir::InputQuery,
 ) -> Result<bool, tx3_cardano::Error> {
-    let min_amount_check = if let Some(min_amount) = &criteria.min_amount {
+    let min_amount_check = if let Some(min_amount) = &criteria.min_amount.as_option() {
         utxo_matches_min_amount(utxo, min_amount)?
     } else {
         // if there is no min amount requirement, then the utxo matches

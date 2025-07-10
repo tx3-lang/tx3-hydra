@@ -184,15 +184,22 @@ pub async fn execute(
     let hydra_adapter = context.hydra_adapter.clone();
     let hydra_ledger = hydra_adapter.ledger.read().await.clone();
 
-    let resolved = tx3_cardano::resolve_tx(tx, hydra_ledger, context.config.max_optimize_rounds)
-        .await
-        .map_err(|err| {
-            ErrorObject::owned(
-                ErrorCode::InternalError.code(),
-                "Failed to resolve",
-                Some(err.to_string()),
-            )
-        });
+    let resolved = tx3_cardano::resolve_tx(
+        tx,
+        hydra_ledger,
+        tx3_cardano::resolve::Config {
+            max_optimize_rounds: context.config.max_optimize_rounds,
+            extra_fees: Some(0),
+        },
+    )
+    .await
+    .map_err(|err| {
+        ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Failed to resolve",
+            Some(err.to_string()),
+        )
+    });
 
     let resolved = match resolved {
         Ok(resolved) => resolved,

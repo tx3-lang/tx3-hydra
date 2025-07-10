@@ -1,5 +1,6 @@
 import type { Route } from "./+types/home";
 import { useEffect, useRef, useState } from "react";
+import { Buffer } from "buffer"
 
 import { toast } from "react-toastify";
 import { Client } from "~/tx3/protocol";
@@ -156,6 +157,15 @@ export default function Home() {
     }
   };
 
+  const hex_to_utf8 = (value: string) => {
+    try {
+      return Buffer.from(value, "hex").toString("utf8")
+    }
+    catch {
+      return value
+    }
+  }
+
   return (
     <>
       <div className="container mx-auto p-4">
@@ -268,10 +278,22 @@ export default function Home() {
                   }
 
                   <div> {hash} </div>
-                  <div> {Object.entries(utxo.value).map(([coin, amount], idx) => (
-                    <span key={`${hash}-${idx}`}>
-                      {coin}: {amount}
-                    </span>
+                  <div> {Object.entries(utxo.value).map(([key, value], idx) => (
+                    key == "lovelace" ? (
+                      <span key={`${hash}-${idx}`}>
+                        {key}: {value as string}
+                      </span>
+                    ) : (
+                      <div>
+                        {
+                          Object.entries(value as object).map(([assetName, amount]) => (
+                            <span key={`${hash}-${idx}`}>
+                              {hex_to_utf8(assetName)}: {amount}
+                            </span>
+                          ))
+                        }
+                      </div>
+                    )
                   ))}
                   </div>
                 </div>
