@@ -7,7 +7,7 @@ use tx3_lang::ir::InputQuery;
 use crate::{
     hydra::{
         self, HydraLedger,
-        data::{HydraPParams, TxID, Utxo},
+        data::{AssetValue, HydraPParams, TxID, Utxo},
     },
     trp::inputs::InputSelector,
 };
@@ -96,15 +96,28 @@ impl Ledger for HydraLedger {
 }
 
 impl hydra::data::Value {
-    pub fn coin(&self) -> i128 {
-        *self.assets.get("lovelace").unwrap() as i128
+    pub fn lovelace(&self) -> i128 {
+        match self.assets.get("lovelace") {
+            Some(AssetValue::Lovelace(amount)) => *amount as i128,
+            _ => 0,
+        }
     }
 
     pub fn assets(&self) -> HashMap<String, u64> {
-        self.assets
-            .clone()
-            .into_iter()
-            .filter(|(unit, _)| !unit.as_str().eq("lovelace"))
-            .collect()
+        let mut result = HashMap::new();
+
+        for (policy, value) in &self.assets {
+            match value {
+                AssetValue::Lovelace(_) => continue,
+                AssetValue::Multi(map) => {
+                    for (asset_name, amount) in map {
+                        let unit = format!("{policy}{asset_name}");
+                        result.insert(unit, *amount);
+                    }
+                }
+            }
+        }
+
+        result
     }
 }

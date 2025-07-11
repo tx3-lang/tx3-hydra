@@ -90,7 +90,7 @@ fn utxo_includes_lovelace_amount(
     amount: &tx3_lang::ir::Expression,
 ) -> Result<bool, tx3_cardano::Error> {
     let expected = tx3_cardano::coercion::expr_into_number(amount)?;
-    Ok(utxo.value.coin() >= expected)
+    Ok(utxo.value.lovelace() >= expected)
 }
 
 fn utxo_matches_min_amount(

@@ -6,16 +6,16 @@ use serde::{Deserialize, Serialize, Serializer, ser::SerializeStruct};
 pub type TxID = String;
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
+#[serde(tag = "tag")]
 pub enum Event {
-    Bootstrap {
+    Greetings {
         #[serde(rename = "headStatus")]
         head_status: HeadStatus,
 
         #[serde(alias = "snapshotUtxo")]
-        utxo: HashMap<TxID, Utxo>,
+        snapshot: HashMap<TxID, Utxo>,
     },
-    Snapshot {
+    SnapshotConfirmed {
         snapshot: Snapshot,
     },
 }
@@ -44,9 +44,9 @@ pub enum HydraPParamsPlutusVersion {
 impl From<HydraPParamsPlutusVersion> for u8 {
     fn from(value: HydraPParamsPlutusVersion) -> Self {
         match value {
-            HydraPParamsPlutusVersion::PlutusV1 => 1,
-            HydraPParamsPlutusVersion::PlutusV2 => 2,
-            HydraPParamsPlutusVersion::PlutusV3 => 3,
+            HydraPParamsPlutusVersion::PlutusV1 => 0,
+            HydraPParamsPlutusVersion::PlutusV2 => 1,
+            HydraPParamsPlutusVersion::PlutusV3 => 2,
         }
     }
 }
@@ -111,11 +111,18 @@ pub struct ReferenceScript {
     pub r#type: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum AssetValue {
+    Lovelace(u64),
+    Multi(HashMap<String, u64>),
+}
+
 /// Map of asset IDs to amounts
 #[derive(Deserialize, Debug, Clone)]
 pub struct Value {
     #[serde(flatten)]
-    pub assets: HashMap<String, u64>,
+    pub assets: HashMap<String, AssetValue>,
 }
 
 /// Tags accepted by hydra Websocket

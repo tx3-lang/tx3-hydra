@@ -1,22 +1,62 @@
-party Sender;
 
-party Receiver;
-
-tx transfer(
+tx mint_from_script(
+    minter: Address,
+    receiver: Address,
     quantity: Int
 ) {
+    locals {
+       new_token: AnyAsset(0xbd3ae991b5aafccafe5ca70758bd36a9b2f872f57f6d3a1ffa0eb777, "ABC", quantity),
+    }
+
+    collateral { 
+      from: minter,
+    }
+
     input source {
-        from: Sender,
-        min_amount: Ada(quantity) + fees,
+        from: minter,
+    }
+
+    mint {
+        amount: new_token,
+        redeemer: (),
     }
     
     output {
-        to: Receiver,
-        amount: Ada(quantity),
+        to: receiver,
+        amount: new_token,
     }
 
     output {
-        to: Sender,
-        amount: source - Ada(quantity) - fees,
+        to: minter,
+        amount: source - fees,
+    }
+
+    cardano::plutus_witness {
+        version: 3,
+        script: 0x5101010023259800a518a4d136564004ae69,
+    }
+}
+
+tx transfer(
+    sender: Address,
+    receiver: Address,
+    quantity: Int
+) {
+    locals {
+       new_token: AnyAsset(0xbd3ae991b5aafccafe5ca70758bd36a9b2f872f57f6d3a1ffa0eb777, "ABC", quantity),
+    }
+
+    input source {
+        from: sender,
+    }
+    
+    output {
+        to: receiver,
+        amount: new_token,
+    }
+
+    output {
+        to: sender,
+        amount: source - new_token - fees,
     }
 }
