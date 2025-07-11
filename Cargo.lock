@@ -194,6 +194,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
 
 [[package]]
+name = "bech32"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
+
+[[package]]
 name = "bincode"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1444,7 +1450,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3f0bf697964d0562ee36727834f3fb698bdcf71dc2fef8c2f15e4e8920c6b55"
 dependencies = [
  "base58",
- "bech32",
+ "bech32 0.9.1",
  "crc",
  "cryptoxide",
  "hex",
@@ -3025,6 +3031,7 @@ dependencies = [
  "tracing-subscriber",
  "tx3-cardano",
  "tx3-lang",
+ "tx3-sdk",
 ]
 
 [[package]]
@@ -3040,6 +3047,22 @@ dependencies = [
  "pest_derive",
  "serde",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "tx3-sdk"
+version = "0.3.1"
+source = "git+https://github.com/tx3-lang/rust-sdk.git?tag=v0.3.1#c49a1f74c6f21be7be4c6f54082a8b50f9ff3e46"
+dependencies = [
+ "base64 0.22.1",
+ "bech32 0.11.0",
+ "hex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tx3-lang",
+ "uuid",
 ]
 
 [[package]]
@@ -3162,6 +3185,17 @@ dependencies = [
  "prost-types",
  "serde",
  "tonic",
+]
+
+[[package]]
+name = "uuid"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cf4199d1e5d15ddd86a694e4d0dffa9c323ce759fea589f00fef9d81cc1931d"
+dependencies = [
+ "getrandom 0.3.3",
+ "js-sys",
+ "wasm-bindgen",
 ]
 
 [[package]]
