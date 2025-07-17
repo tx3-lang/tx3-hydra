@@ -4,6 +4,7 @@ import { Buffer } from "buffer"
 
 import { toast } from "react-toastify";
 import { Client } from "~/tx3/protocol";
+import { ArgValue } from "tx3-sdk/trp";
 
 const TRP_URL = import.meta.env.VITE_TRP_URL
 const VM_ADDRESS = import.meta.env.VITE_VM_ADDRESS
@@ -115,9 +116,9 @@ export default function Home() {
       });
 
       const response = await client.transferTx({
-        quantity: quantityTokens,
-        receiver: VM_ADDRESS,
-        sender: address!
+        quantity: ArgValue.from(quantityTokens),
+        receiver: ArgValue.from(VM_ADDRESS),
+        sender: ArgValue.from(address!)
       })
 
       console.info("TX CBOR: ", response.tx)

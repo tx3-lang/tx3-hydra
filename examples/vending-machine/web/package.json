@@ -20,7 +20,7 @@
     "react-dom": "^19.1.0",
     "react-router": "^7.5.3",
     "react-toastify": "^11.0.5",
-    "tx3-sdk": "^0.2.0"
+    "tx3-sdk": "^0.5.0"
   },
   "devDependencies": {
     "@react-router/dev": "^7.5.3",
