@@ -20,8 +20,8 @@ tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
-tx3-lang = "0.8.1"
-tx3-cardano = "0.8.1"
+tx3-lang = "0.8.2"
+tx3-cardano = "0.8.2"
 
 # tx3-sdk = "0.3.0"
 # tx3-sdk = { path="../rust-sdk/sdk" }

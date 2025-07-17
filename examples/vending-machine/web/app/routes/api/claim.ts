@@ -1,6 +1,7 @@
 import * as CSL from "@emurgo/cardano-serialization-lib-nodejs"
 import cbor from "cbor"
 import { randomUUID } from "crypto";
+import { ArgValue } from "tx3-sdk/trp";
 
 import { Client } from "~/tx3/protocol";
 import { getAdminCredentials } from "~/utils";
@@ -21,9 +22,9 @@ export const action = async ({ request }: { request: Request }) => {
   );
 
   const response = await client.mintFromScriptTx({
-    quantity: 1,
-    minter: adminAddress.to_hex(),
-    receiver: payload.address
+    quantity: ArgValue.from(1),
+    minter: ArgValue.from(adminAddress.to_hex()),
+    receiver: ArgValue.from(payload.address)
   })
 
   const fixedTx = CSL.FixedTransaction.from_hex(response.tx)
