@@ -58,31 +58,24 @@ fn utxo_includes_custom_asset(
     expected: &tx3_lang::ir::AssetExpr,
 ) -> Result<bool, tx3_cardano::Error> {
     let policy = tx3_cardano::coercion::expr_into_bytes(&expected.policy)?;
+    let policy_hex = hex::encode(policy.as_slice());
 
-    let assets: Vec<(String, u64)> = utxo
-        .value
-        .assets()
-        .into_iter()
-        .filter(|(unit, _)| policy.to_vec().eq(&hex::decode(&unit[..56]).unwrap()))
-        .collect();
+    let assets = utxo.value.assets_by_policy(&policy_hex);
 
     if assets.is_empty() {
         return Ok(false);
     }
 
     let name = tx3_cardano::coercion::expr_into_bytes(&expected.asset_name)?;
+    let name_hex = hex::encode(name.as_slice());
 
-    let asset = assets
-        .iter()
-        .find(|(unit, _)| name.to_vec().eq(&hex::decode(&unit[56..]).unwrap()));
-
-    let Some(asset) = asset else {
+    let Some(asset) = assets.get(&name_hex) else {
         return Ok(false);
     };
 
     let amount = tx3_cardano::coercion::expr_into_number(&expected.amount)?;
 
-    Ok(asset.1 as i128 >= amount)
+    Ok(*asset as i128 >= amount)
 }
 
 fn utxo_includes_lovelace_amount(
@@ -192,9 +185,9 @@ impl InputSelector {
         let policy_bytes = tx3_cardano::coercion::expr_into_bytes(&expr.policy)?;
         let name_bytes = tx3_cardano::coercion::expr_into_bytes(&expr.asset_name)?;
 
-        let unit = [policy_bytes.as_slice(), name_bytes.as_slice()].concat();
-
-        let utxos = self.ledger.get_utxo_by_asset(unit);
+        let utxos = self
+            .ledger
+            .get_utxo_by_asset(policy_bytes.as_slice(), name_bytes.as_slice());
 
         Ok(Subset::Specific(utxos.into_iter().collect()))
     }
@@ -294,5 +287,123 @@ impl InputSelector {
         } else {
             Ok(tx3_lang::UtxoSet::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tx3_cardano::pallas;
+
+    use super::*;
+
+    fn setup_dummy_ledger() -> HydraLedger {
+        let utxos =
+            serde_json::from_str::<HashMap<TxID, Utxo>>(include_str!("test_data/utxos.json"))
+                .unwrap();
+
+        HydraLedger {
+            utxos,
+            network: 0,
+            http_url: "".to_string(),
+        }
+    }
+
+    fn bech32_address_expr(bech32: &str) -> tx3_lang::ir::Expression {
+        let address = pallas::ledger::addresses::Address::from_bech32(bech32).unwrap();
+        tx3_lang::ir::Expression::Address(address.to_vec())
+    }
+
+    fn custom_asset_expr(policy: &str, name: &str, amount: i128) -> tx3_lang::ir::AssetExpr {
+        tx3_lang::ir::AssetExpr {
+            policy: tx3_lang::ir::Expression::Bytes(hex::decode(policy).unwrap()),
+            asset_name: tx3_lang::ir::Expression::Bytes(hex::decode(name).unwrap()),
+            amount: tx3_lang::ir::Expression::Number(amount),
+        }
+    }
+
+    fn lovelace_expr(amount: i128) -> tx3_lang::ir::AssetExpr {
+        tx3_lang::ir::AssetExpr {
+            policy: tx3_lang::ir::Expression::None,
+            asset_name: tx3_lang::ir::Expression::None,
+            amount: tx3_lang::ir::Expression::Number(amount),
+        }
+    }
+
+    #[test]
+    fn test_utxo_match_asset_presence() {
+        let ledger = setup_dummy_ledger();
+        let selector = InputSelector::new(ledger, tx3_cardano::Network::Testnet);
+
+        let criteria = tx3_lang::ir::InputQuery {
+            address: tx3_lang::ir::Expression::None,
+            min_amount: tx3_lang::ir::Expression::Assets(vec![custom_asset_expr(
+                "954fe5769e9eb8dad54c99f8d62015c813c24f229a4d98dbf05c28b9",
+                "434f494e",
+                1,
+            )]),
+            r#ref: tx3_lang::ir::Expression::None,
+        };
+
+        let result = selector.select(&criteria).unwrap();
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_utxo_match_address_and_asset_presence() {
+        let ledger = setup_dummy_ledger();
+        let selector = InputSelector::new(ledger, tx3_cardano::Network::Testnet);
+
+        let criteria = tx3_lang::ir::InputQuery {
+            address: bech32_address_expr(
+                "addr_test1vp7f4380zv203gjqscn5ls4j6s0v976nnqdhds5n78ty6hqu9e072",
+            ),
+            min_amount: tx3_lang::ir::Expression::Assets(vec![custom_asset_expr(
+                "954fe5769e9eb8dad54c99f8d62015c813c24f229a4d98dbf05c28b9",
+                "434f494e",
+                1,
+            )]),
+            r#ref: tx3_lang::ir::Expression::None,
+        };
+
+        let result = selector.select(&criteria).unwrap();
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_utxo_match_lovelace_amount() {
+        let ledger = setup_dummy_ledger();
+        let selector = InputSelector::new(ledger, tx3_cardano::Network::Testnet);
+
+        let criteria = tx3_lang::ir::InputQuery {
+            address: bech32_address_expr(
+                "addr_test1vp7f4380zv203gjqscn5ls4j6s0v976nnqdhds5n78ty6hqu9e072",
+            ),
+            min_amount: tx3_lang::ir::Expression::Assets(vec![lovelace_expr(1_000_000_000)]),
+            r#ref: tx3_lang::ir::Expression::None,
+        };
+
+        let result = selector.select(&criteria).unwrap();
+
+        assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_utxo_excludes_lower_amount() {
+        let ledger = setup_dummy_ledger();
+        let selector = InputSelector::new(ledger, tx3_cardano::Network::Testnet);
+
+        let criteria = tx3_lang::ir::InputQuery {
+            address: bech32_address_expr(
+                "addr_test1vp7f4380zv203gjqscn5ls4j6s0v976nnqdhds5n78ty6hqu9e072",
+            ),
+            min_amount: tx3_lang::ir::Expression::Assets(vec![lovelace_expr(1_000_000_001)]),
+            r#ref: tx3_lang::ir::Expression::None,
+        };
+
+        let result = selector.select(&criteria).unwrap();
+
+        assert_eq!(result.len(), 0);
     }
 }
