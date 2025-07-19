@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
 use tracing::error;
-use tx3_cardano::{Error, Ledger, PParams, pallas::ledger::addresses::Address};
+use tx3_cardano::{
+    Error, Ledger, PParams,
+    pallas::ledger::{addresses::Address, traverse::assets},
+};
 use tx3_lang::ir::InputQuery;
 
 use crate::{
@@ -26,17 +29,18 @@ impl HydraLedger {
         Ok(tx_ids)
     }
 
-    pub fn get_utxo_by_asset(&self, unit: Vec<u8>) -> Vec<TxID> {
-        let unit_hex = hex::encode(unit);
+    pub fn get_utxo_by_asset(&self, policy: &[u8], name: &[u8]) -> Vec<TxID> {
+        let policy_hex = hex::encode(policy);
+        let name_hex = hex::encode(name);
+
+        let utxo_has_asset = |utxo: &Utxo| {
+            let by_policy = utxo.value.assets_by_policy(&policy_hex);
+            by_policy.contains_key(&name_hex)
+        };
 
         self.utxos
             .iter()
-            .filter(|(_, utxo)| {
-                utxo.value
-                    .assets
-                    .iter()
-                    .any(|(asset, _amount)| asset.eq(&unit_hex))
-            })
+            .filter(|(_, utxo)| utxo_has_asset(utxo))
             .map(|(tx_id, _)| tx_id.clone())
             .collect()
     }

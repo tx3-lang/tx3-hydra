@@ -129,6 +129,7 @@ pub struct HydraLedger {
     pub network: u8,
     pub http_url: String,
 }
+
 impl HydraLedger {
     pub fn new(config: Config) -> Self {
         Self {
