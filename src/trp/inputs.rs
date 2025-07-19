@@ -58,31 +58,24 @@ fn utxo_includes_custom_asset(
     expected: &tx3_lang::ir::AssetExpr,
 ) -> Result<bool, tx3_cardano::Error> {
     let policy = tx3_cardano::coercion::expr_into_bytes(&expected.policy)?;
+    let policy_hex = hex::encode(policy.as_slice());
 
-    let assets: Vec<(String, u64)> = utxo
-        .value
-        .assets()
-        .into_iter()
-        .filter(|(unit, _)| policy.to_vec().eq(&hex::decode(&unit[..56]).unwrap()))
-        .collect();
+    let assets = utxo.value.assets_by_policy(&policy_hex);
 
     if assets.is_empty() {
         return Ok(false);
     }
 
     let name = tx3_cardano::coercion::expr_into_bytes(&expected.asset_name)?;
+    let name_hex = hex::encode(name.as_slice());
 
-    let asset = assets
-        .iter()
-        .find(|(unit, _)| name.to_vec().eq(&hex::decode(&unit[56..]).unwrap()));
-
-    let Some(asset) = asset else {
+    let Some(asset) = assets.get(&name_hex) else {
         return Ok(false);
     };
 
     let amount = tx3_cardano::coercion::expr_into_number(&expected.amount)?;
 
-    Ok(asset.1 as i128 >= amount)
+    Ok(*asset as i128 >= amount)
 }
 
 fn utxo_includes_lovelace_amount(

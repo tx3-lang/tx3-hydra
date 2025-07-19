@@ -103,21 +103,14 @@ impl hydra::data::Value {
         }
     }
 
-    pub fn assets(&self) -> HashMap<String, u64> {
-        let mut result = HashMap::new();
+    pub fn assets_by_policy(&self, policy_hex: &str) -> HashMap<String, u64> {
+        let Some(policy_value) = self.assets.get(policy_hex) else {
+            return HashMap::new();
+        };
 
-        for (policy, value) in &self.assets {
-            match value {
-                AssetValue::Lovelace(_) => continue,
-                AssetValue::Multi(map) => {
-                    for (asset_name, amount) in map {
-                        let unit = format!("{policy}{asset_name}");
-                        result.insert(unit, *amount);
-                    }
-                }
-            }
+        match policy_value {
+            AssetValue::Lovelace(_) => return HashMap::new(),
+            AssetValue::Multi(map) => map.clone(),
         }
-
-        result
     }
 }
