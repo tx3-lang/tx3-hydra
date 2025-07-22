@@ -2993,15 +2993,14 @@ dependencies = [
 
 [[package]]
 name = "tx3-cardano"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81732cdaafdd3da8af9d0949c42c73bb574b1dfc2bfeea1bf143195d7c0061d1"
+checksum = "d5ae0559827352d7572ec2a0cd6e77d9397ace2b31fc22e293062391e964c958"
 dependencies = [
  "hex",
  "pallas",
  "serde",
  "thiserror 2.0.12",
- "tokio",
  "trait-variant",
  "tx3-lang",
  "utxorpc",
@@ -3031,14 +3030,15 @@ dependencies = [
  "tracing-subscriber",
  "tx3-cardano",
  "tx3-lang",
+ "tx3-resolver",
  "tx3-sdk",
 ]
 
 [[package]]
 name = "tx3-lang"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d94ea42335cde3eafb4ad15eb5d1d6e34c0174cb020ddfceb4aba3ea0b0489ba"
+checksum = "d67a332fe43d1758581f69810fa0eb8ec5cb044b3a1d0219beedd831a99cdd8f"
 dependencies = [
  "bincode",
  "hex",
@@ -3047,12 +3047,25 @@ dependencies = [
  "pest_derive",
  "serde",
  "thiserror 2.0.12",
+ "trait-variant",
+]
+
+[[package]]
+name = "tx3-resolver"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a281f641f969c886ba6f778672cd363a83b89a0351aedef8669e08f1a3978381"
+dependencies = [
+ "thiserror 2.0.12",
+ "trait-variant",
+ "tx3-lang",
 ]
 
 [[package]]
 name = "tx3-sdk"
-version = "0.6.0"
-source = "git+https://github.com/tx3-lang/rust-sdk.git?tag=v0.6.0#9412789250261762fb4be4a16ca13760379d8f9a"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01c77336fd78ba3cd473d6a654b016e74524cd60a1d3660a55b2c9ff922d196c"
 dependencies = [
  "base64 0.22.1",
  "bech32 0.11.0",

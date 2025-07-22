@@ -1,26 +1,30 @@
-use std::collections::HashMap;
-
 use anyhow::Context;
-use data::{Event, HeadStatus, HydraMessage, HydraPParams, TxID, Utxo};
 use futures_util::{
     SinkExt, StreamExt,
     stream::{SplitSink, SplitStream},
 };
 use serde::Deserialize;
+use std::collections::HashMap;
 use tokio::{
     net::TcpStream,
-    sync::{Mutex, RwLock},
+    sync::{Mutex, RwLock, RwLockReadGuard},
 };
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 use tx3_cardano::PParams;
 
-pub mod data;
+pub mod model;
+
+use model::{Event, HeadStatus, HydraMessage, HydraPParams, TxID, Utxo};
+
+pub struct UtxoSnapshot<'a>(pub RwLockReadGuard<'a, HashMap<TxID, Utxo>>);
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
+
 pub struct HydraAdapter {
-    pub ledger: RwLock<HydraLedger>,
+    config: Config,
+    utxos: RwLock<HashMap<TxID, Utxo>>,
     head_status: RwLock<HeadStatus>,
     stream: Mutex<SplitStream<WsStream>>,
     sink: Mutex<SplitSink<WsStream, Message>>,
@@ -33,13 +37,14 @@ impl HydraAdapter {
 
         let (write, read) = ws_stream.split();
 
-        let ledger = RwLock::new(HydraLedger::new(config));
+        let utxos = RwLock::new(HashMap::new());
         let stream = Mutex::new(read);
         let sink = Mutex::new(write);
         let head_status = RwLock::new(HeadStatus::Closed);
 
         Ok(Self {
-            ledger,
+            config,
+            utxos,
             stream,
             sink,
             head_status,
@@ -66,12 +71,11 @@ impl HydraAdapter {
                             snapshot,
                         } => {
                             info!(utxos = snapshot.len(), "Greetings event");
-                            self.ledger.write().await.update(snapshot);
+                            self.update_utxos(snapshot).await;
                             *self.head_status.write().await = head_status;
                         }
                         Event::SnapshotConfirmed { snapshot } => {
-                            info!(utxos = snapshot.utxo.len(), "Snapshot updated");
-                            self.ledger.write().await.update(snapshot.utxo);
+                            self.update_utxos(snapshot.utxo).await;
                         }
                     },
 
@@ -121,26 +125,38 @@ impl HydraAdapter {
         let result = sink.send(Message::Ping(Vec::new().into())).await;
         result.is_ok()
     }
-}
 
-#[derive(Debug, Clone, Default)]
-pub struct HydraLedger {
-    pub utxos: HashMap<TxID, Utxo>,
-    pub network: u8,
-    pub http_url: String,
-}
+    pub async fn get_pparams(&self) -> anyhow::Result<PParams> {
+        let client = reqwest::Client::new();
 
-impl HydraLedger {
-    pub fn new(config: Config) -> Self {
-        Self {
-            http_url: config.http_url,
-            network: config.network,
-            utxos: Default::default(),
-        }
+        let req = client
+            .get(format!("{}/protocol-parameters", self.config.http_url))
+            .build()
+            .unwrap();
+
+        let res = client
+            .execute(req)
+            .await
+            .context("fetching http pparams endpoint")?;
+
+        let hydra_pparams = res
+            .json::<HydraPParams>()
+            .await
+            .context("decoding pparams")?;
+
+        let pparams = hydra_pparams.to_tx3_pparams(self.config.network);
+
+        Ok(pparams)
     }
 
-    pub fn update(&mut self, utxo_snapshot: HashMap<TxID, Utxo>) {
-        self.utxos = utxo_snapshot;
+    pub async fn update_utxos(&self, utxos: HashMap<TxID, Utxo>) {
+        let utxos_len = utxos.len();
+        *self.utxos.write().await = utxos;
+        info!(utxos = utxos_len, "Snapshot updated");
+    }
+
+    pub async fn read_utxos(&self) -> UtxoSnapshot {
+        UtxoSnapshot(self.utxos.read().await)
     }
 }
 

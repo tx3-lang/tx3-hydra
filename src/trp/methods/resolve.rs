@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
 use base64::{Engine, engine::general_purpose::STANDARD};
 use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params};
 use serde::Deserialize;
+use std::sync::Arc;
 use tracing::info;
 use tx3_lang::ProtoTx;
 
@@ -115,16 +114,30 @@ pub async fn execute(
         }
     };
 
-    let hydra_adapter = context.hydra_adapter.clone();
-    let hydra_ledger = hydra_adapter.ledger.read().await.clone();
+    let hydra = context.hydra_adapter.clone();
+    let utxos = hydra.read_utxos().await;
 
-    let resolved = tx3_cardano::resolve_tx(
-        tx,
-        hydra_ledger,
-        tx3_cardano::resolve::Config {
-            max_optimize_rounds: context.config.max_optimize_rounds,
+    // TODO: very inefficient to query it time we resolve a tx
+    let pparams = hydra.get_pparams().await.map_err(|e| {
+        ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Failed to get pparams",
+            Some(e.to_string()),
+        )
+    })?;
+
+    let mut compiler = tx3_cardano::Compiler::new(
+        pparams,
+        tx3_cardano::Config {
             extra_fees: Some(0),
         },
+    );
+
+    let resolved = tx3_resolver::resolve_tx(
+        tx,
+        &mut compiler,
+        &utxos,
+        context.config.max_optimize_rounds,
     )
     .await
     .map_err(|err| {
