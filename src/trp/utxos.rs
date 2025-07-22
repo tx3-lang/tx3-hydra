@@ -1,142 +1,103 @@
-use anyhow::Context;
-use tx3_cardano::pallas::{
-    codec::utils::KeyValuePairs,
-    ledger::{
-        addresses::Address,
-        primitives::{BigInt, Constr, PlutusData},
-    },
+use std::collections::HashSet;
+
+use tx3_cardano::pallas::ledger::addresses::Address;
+use tx3_lang::{
+    UtxoRef, UtxoSet,
+    backend::{Error, UtxoPattern, UtxoStore},
 };
-use tx3_lang::ir::{Expression, StructExpr};
 
-use crate::hydra::data::{AssetValue, TxID, Utxo};
+use crate::hydra::{
+    UtxoSnapshot,
+    model::{TxID, Utxo},
+};
 
-pub fn into_tx3_utxo(hydra_utxo: (TxID, Utxo)) -> anyhow::Result<tx3_lang::Utxo> {
-    let (tx_id, utxo) = hydra_utxo;
-    let split: Vec<&str> = tx_id.split("#").collect();
+fn parse_txid(txid: &str) -> Option<UtxoRef> {
+    let (txid, index) = txid.split_once("#")?;
+    let hash = hex::decode(txid).ok()?;
+    let index = index.parse::<u32>().ok()?;
+    let utxo_ref = UtxoRef::new(&hash, index);
 
-    let tx_id_vec = hex::decode(split[0]).context("failed to decode hydra utxo tx hash")?;
-
-    let tx_id_index = split[1]
-        .parse::<u32>()
-        .context("failed to decode hydra utxo tx index")?;
-
-    let utxo_ref = tx3_lang::UtxoRef {
-        txid: tx_id_vec,
-        index: tx_id_index,
-    };
-
-    let address =
-        Address::from_bech32(&utxo.address).context("failed to decode hydra utxo address")?;
-
-    let datum = match (&utxo.inline_datum, &utxo.datum, &utxo.inline_datum_raw) {
-        (Some(inline_datum), None, None) => {
-            let plutus_data = serde_json::from_value::<PlutusData>(inline_datum.clone())
-                .context("failed to decode hydra utxo inline datum")?;
-            Some(map_datum(&plutus_data))
-        }
-        (None, Some(datum), None) => {
-            let datum = hex::decode(datum).context("failed to decode hydra utxo hex datum")?;
-            let plutus_data = serde_json::from_slice::<PlutusData>(&datum)
-                .context("failed to decode hydra utxo datum")?;
-            Some(map_datum(&plutus_data))
-        }
-        (None, None, Some(datum_raw)) => {
-            let datum =
-                hex::decode(datum_raw).context("failed to decode hydra utxo hex cbor datum raw")?;
-
-            Some(Expression::Bytes(datum))
-        }
-        _ => None,
-    };
-
-    let assets = utxo
-        .value
-        .assets
-        .iter()
-        .flat_map(|(key, asset)| match asset {
-            AssetValue::Lovelace(amount) => {
-                vec![tx3_lang::ir::AssetExpr {
-                    amount: tx3_lang::ir::Expression::Number(*amount as i128),
-                    policy: tx3_lang::ir::Expression::None,
-                    asset_name: tx3_lang::ir::Expression::None,
-                }]
-            }
-
-            AssetValue::Multi(assets) => {
-                let policy_id = hex::decode(key).unwrap();
-                assets
-                    .iter()
-                    .map(|(asset_name, amount)| tx3_lang::ir::AssetExpr {
-                        amount: tx3_lang::ir::Expression::Number(*amount as i128),
-                        policy: tx3_lang::ir::Expression::Bytes(policy_id.clone()),
-                        asset_name: tx3_lang::ir::Expression::Bytes(
-                            hex::decode(asset_name).unwrap(),
-                        ),
-                    })
-                    .collect()
-            }
-        })
-        .collect();
-
-    let utxo = tx3_lang::Utxo {
-        address: address.to_vec(),
-        r#ref: utxo_ref,
-        datum,
-        assets,
-        // TODO: implement reference script expression
-        script: None,
-    };
-
-    Ok(utxo)
+    Some(utxo_ref)
 }
 
-fn map_big_int(x: &BigInt) -> Expression {
-    match x {
-        BigInt::Int(x) => Expression::Number((*x).into()),
-        BigInt::BigUInt(bounded_bytes) => {
-            // Convert bytes to big-endian integer
-            let mut result = 0i128;
-            for &byte in bounded_bytes.iter() {
-                result = (result << 8) | (byte as i128);
-            }
-            Expression::Number(result)
-        }
-        BigInt::BigNInt(bounded_bytes) => {
-            // Convert bytes to big-endian integer and negate
-            let mut result = 0i128;
-            for &byte in bounded_bytes.iter() {
-                result = (result << 8) | (byte as i128);
-            }
-            Expression::Number(-result)
-        }
+impl UtxoSnapshot<'_> {
+    pub fn get_utxo_by_address(&self, address: &[u8]) -> Vec<TxID> {
+        let address = Address::from_bytes(address).map(|x| x.to_string()).ok();
+
+        let Some(address) = address else {
+            return Vec::new();
+        };
+
+        self.0
+            .iter()
+            .filter(|(_, utxo)| utxo.address.eq(&address))
+            .map(|(tx_id, _)| tx_id.clone())
+            .collect()
+    }
+
+    pub fn get_utxo_by_asset_policy(&self, policy: &[u8]) -> Vec<TxID> {
+        let policy_hex = hex::encode(policy);
+
+        let utxo_matches = |utxo: &Utxo| {
+            let by_policy = utxo.value.assets_by_policy(&policy_hex);
+            by_policy.len() > 0
+        };
+
+        self.0
+            .iter()
+            .filter(|(_, utxo)| utxo_matches(utxo))
+            .map(|(tx_id, _)| tx_id.clone())
+            .collect()
+    }
+
+    pub fn get_utxo_by_asset(&self, policy: &[u8], name: &[u8]) -> Vec<TxID> {
+        let policy_hex = hex::encode(policy);
+        let name_hex = hex::encode(name);
+
+        let utxo_matches = |utxo: &Utxo| {
+            let by_policy = utxo.value.assets_by_policy(&policy_hex);
+            by_policy.contains_key(&name_hex)
+        };
+
+        self.0
+            .iter()
+            .filter(|(_, utxo)| utxo_matches(utxo))
+            .map(|(tx_id, _)| tx_id.clone())
+            .collect()
     }
 }
 
-fn map_constr(x: &Constr<PlutusData>) -> Expression {
-    Expression::Struct(StructExpr {
-        constructor: x.constructor_value().unwrap_or_default() as usize,
-        fields: x.fields.iter().map(map_datum).collect(),
-    })
-}
+impl UtxoStore for UtxoSnapshot<'_> {
+    async fn narrow_refs(&self, pattern: UtxoPattern<'_>) -> Result<HashSet<UtxoRef>, Error> {
+        let txids = match pattern {
+            UtxoPattern::ByAddress(address) => self.get_utxo_by_address(&address),
+            UtxoPattern::ByAssetPolicy(policy) => self.get_utxo_by_asset_policy(policy),
+            UtxoPattern::ByAsset(policy, name) => self.get_utxo_by_asset(policy, name),
+        };
 
-fn map_array(x: &[PlutusData]) -> Expression {
-    Expression::List(x.iter().map(map_datum).collect())
-}
+        let refs = txids
+            .into_iter()
+            .map(|txid| parse_txid(&txid))
+            .flatten()
+            .collect();
 
-fn map_map(x: &KeyValuePairs<PlutusData, PlutusData>) -> Expression {
-    Expression::List(
-        x.iter()
-            .map(|(k, v)| Expression::List(vec![map_datum(k), map_datum(v)]))
-            .collect(),
-    )
-}
+        Ok(refs)
+    }
 
-fn map_datum(datum: &PlutusData) -> Expression {
-    match datum {
-        PlutusData::Constr(x) => map_constr(x),
-        PlutusData::Map(x) => map_map(x),
-        PlutusData::BigInt(x) => map_big_int(x),
-        PlutusData::BoundedBytes(x) => Expression::Bytes(x.to_vec()),
-        PlutusData::Array(x) => map_array(x),
+    async fn fetch_utxos(&self, refs: HashSet<UtxoRef>) -> Result<UtxoSet, Error> {
+        let mut utxos = HashSet::new();
+
+        for ref_ in refs {
+            let txid = format!("{}#{}", hex::encode(&ref_.txid), ref_.index);
+
+            let utxo = self.0.get(&txid).ok_or(Error::UtxoNotFound(ref_.clone()))?;
+
+            let utxo = super::mapping::into_tx3_utxo(ref_, utxo)
+                .map_err(|x| Error::StoreError(x.to_string()))?;
+
+            utxos.insert(utxo);
+        }
+
+        Ok(utxos)
     }
 }

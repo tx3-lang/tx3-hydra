@@ -7,7 +7,7 @@ use tracing::{error, info};
 use tx3_cardano::pallas::ledger::traverse::MultiEraTx;
 
 use crate::{
-    hydra::data::{HydraMessage, NewTx},
+    hydra::model::{HydraMessage, NewTx},
     trp::Context,
 };
 

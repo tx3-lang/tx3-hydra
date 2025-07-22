@@ -125,11 +125,25 @@ pub struct Value {
     pub assets: HashMap<String, AssetValue>,
 }
 
+impl Value {
+    pub fn assets_by_policy(&self, policy_hex: &str) -> HashMap<String, u64> {
+        let Some(policy_value) = self.assets.get(policy_hex) else {
+            return HashMap::new();
+        };
+
+        match policy_value {
+            AssetValue::Lovelace(_) => return HashMap::new(),
+            AssetValue::Multi(map) => map.clone(),
+        }
+    }
+}
+
 /// Tags accepted by hydra Websocket
 #[derive(Debug, Clone)]
 pub enum HydraMessage {
     NewTx(NewTx),
 }
+
 impl Serialize for HydraMessage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -154,6 +168,7 @@ pub struct NewTx {
     #[serde(rename = "cborHex")]
     pub cbor_hex: String,
 }
+
 impl NewTx {
     pub fn new(cbor: Vec<u8>) -> Self {
         let r#type = String::from("Tx ConwayEra");

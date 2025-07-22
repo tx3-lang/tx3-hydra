@@ -20,12 +20,18 @@ tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
-tx3-lang = "0.9.0"
-tx3-cardano = "0.9.0"
+tx3-lang = "0.10.0"
+# tx3-lang = { path = "../tx3/crates/tx3-lang" }
 
-# tx3-sdk = "0.3.0"
-# tx3-sdk = { path="../rust-sdk/sdk" }
-tx3-sdk = { git="https://github.com/tx3-lang/rust-sdk.git", tag="v0.6.0" }
+tx3-resolver = "0.10.0"
+# tx3-resolver = { path = "../tx3/crates/tx3-resolver" }
+
+tx3-cardano = "0.10.0"
+# tx3-cardano = { path = "../tx3/crates/tx3-cardano" }
+
+tx3-sdk = "^0"
+# tx3-sdk = { path = "../rust-sdk/sdk" }
+# tx3-sdk = { git = "https://github.com/tx3-lang/rust-sdk.git" }
 
 hex = "0.4.3"
 base64 = "0.22.1"
