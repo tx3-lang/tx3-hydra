@@ -2993,9 +2993,9 @@ dependencies = [
 
 [[package]]
 name = "tx3-cardano"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5ae0559827352d7572ec2a0cd6e77d9397ace2b31fc22e293062391e964c958"
+checksum = "e8647f1c8bb3e5d95ad9da5280f682c28a6bf7895249b641f5fefb0b37388f13"
 dependencies = [
  "hex",
  "pallas",
@@ -3036,9 +3036,9 @@ dependencies = [
 
 [[package]]
 name = "tx3-lang"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d67a332fe43d1758581f69810fa0eb8ec5cb044b3a1d0219beedd831a99cdd8f"
+checksum = "6b9d050963aff1d574bfc4635d01b01e09df2401633ccbf83c24797de5f426b9"
 dependencies = [
  "bincode",
  "hex",
@@ -3052,10 +3052,11 @@ dependencies = [
 
 [[package]]
 name = "tx3-resolver"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a281f641f969c886ba6f778672cd363a83b89a0351aedef8669e08f1a3978381"
+checksum = "9c4b6d485b257ffbdd41f0bfa9d9f2e5ab31a89cc174e92c048f83f8b5964337"
 dependencies = [
+ "hex",
  "thiserror 2.0.12",
  "trait-variant",
  "tx3-lang",
