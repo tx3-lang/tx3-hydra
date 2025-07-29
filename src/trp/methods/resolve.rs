@@ -1,6 +1,7 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params};
 use serde::Deserialize;
+use tx3_sdk::trp::error::pretty::PrettyError;
 use std::sync::Arc;
 use tracing::info;
 use tx3_lang::ProtoTx;
@@ -144,7 +145,7 @@ pub async fn execute(
         ErrorObject::owned(
             ErrorCode::InternalError.code(),
             "Failed to resolve",
-            Some(err.to_string()),
+            Some(err.pretty()),
         )
     });
 
