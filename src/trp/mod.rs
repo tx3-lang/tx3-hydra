@@ -2,12 +2,13 @@ use std::sync::Arc;
 
 use jsonrpsee::{RpcModule, server::Server};
 use serde::Deserialize;
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tracing::info;
 
-use crate::hydra::HydraAdapter;
+use crate::hydra::{self, HydraAdapter};
 
 mod mapping;
 mod methods;
@@ -16,6 +17,7 @@ mod utxos;
 pub async fn run(
     config: Config,
     hydra_adapter: Arc<HydraAdapter>,
+    hydra_channel: Arc<broadcast::Sender<hydra::model::Event>>,
     cancellation_token: CancellationToken,
 ) -> anyhow::Result<()> {
     let cors_layer = if config.permissive_cors {
@@ -38,8 +40,10 @@ pub async fn run(
     module.register_async_method("trp.resolve", |params, context, _| async {
         methods::resolve::execute(params, context).await
     })?;
-    module.register_async_method("trp.submit", |params, context, _| async {
-        methods::submit::execute(params, context).await
+
+    module.register_async_method("trp.submit", move |params, context, _| {
+        let hydra_channel = Arc::clone(&hydra_channel);
+        async move { methods::submit::execute(params, context, hydra_channel).await }
     })?;
 
     module.register_async_method("health", |_, context, _| async {

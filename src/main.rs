@@ -24,12 +24,19 @@ async fn main() -> anyhow::Result<()> {
 
     let cancellation_token = cancellation_token();
 
-    let hydra_adapter = Arc::new(hydra::HydraAdapter::try_new(config.hydra.clone()).await?);
+    let (hydra_channel, _) = tokio::sync::broadcast::channel::<hydra::model::Event>(1);
+
+    let hydra_channel = Arc::new(hydra_channel);
+
+    let hydra_adapter = Arc::new(
+        hydra::HydraAdapter::try_new(config.hydra.clone(), Arc::clone(&hydra_channel)).await?,
+    );
 
     let hydra_subscribe = hydra_adapter.subscribe(cancellation_token.clone());
     let trp_server = trp::run(
         config.trp.clone(),
         Arc::clone(&hydra_adapter),
+        Arc::clone(&hydra_channel),
         cancellation_token.clone(),
     );
 
