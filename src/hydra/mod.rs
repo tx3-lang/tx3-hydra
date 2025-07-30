@@ -77,6 +77,10 @@ impl HydraAdapter {
                         Event::SnapshotConfirmed { snapshot } => {
                             self.update_utxos(snapshot.utxo).await;
                         }
+                        Event::HeadIsOpen { snapshot } => {
+                            self.update_utxos(snapshot).await;
+                            *self.head_status.write().await = HeadStatus::Open;
+                        }
                     },
 
                     Err(_) => {

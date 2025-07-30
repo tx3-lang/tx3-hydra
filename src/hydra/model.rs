@@ -18,6 +18,10 @@ pub enum Event {
     SnapshotConfirmed {
         snapshot: Snapshot,
     },
+    HeadIsOpen {
+        #[serde(alias = "utxo")]
+        snapshot: HashMap<TxID, Utxo>
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
