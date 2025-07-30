@@ -23,30 +23,30 @@ fn map_policy_assets(policy: &str, assets: &HashMap<String, u64>) -> tx3_lang::C
 
     let policy_id = hex::decode(policy).unwrap();
 
-    let all = assets
+    
+
+    assets
         .iter()
         .map(|(asset_name, amount)| {
             let asset_name = hex::decode(asset_name).unwrap();
             CanonicalAssets::from_defined_asset(&policy_id, &asset_name, *amount as i128)
         })
-        .fold(init, |acc, x| acc + x);
-
-    all
+        .fold(init, |acc, x| acc + x)
 }
 
 fn map_assets(value: &hydra::model::Value) -> tx3_lang::CanonicalAssets {
     let init = tx3_lang::CanonicalAssets::empty();
 
-    let out = value
+    
+
+    value
         .assets
         .iter()
         .map(|(policy, assets)| match assets {
             AssetValue::Lovelace(amount) => CanonicalAssets::from_naked_amount(*amount as i128),
             AssetValue::Multi(assets) => map_policy_assets(policy, assets),
         })
-        .fold(init, |acc, x| acc + x);
-
-    out
+        .fold(init, |acc, x| acc + x)
 }
 
 fn map_big_int(x: &BigInt) -> Expression {

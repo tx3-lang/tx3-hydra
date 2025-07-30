@@ -157,7 +157,7 @@ impl Value {
         };
 
         match policy_value {
-            AssetValue::Lovelace(_) => return HashMap::new(),
+            AssetValue::Lovelace(_) => HashMap::new(),
             AssetValue::Multi(map) => map.clone(),
         }
     }
