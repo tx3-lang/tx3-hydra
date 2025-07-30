@@ -4,10 +4,10 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
 };
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use tokio::{
     net::TcpStream,
-    sync::{Mutex, RwLock, RwLockReadGuard},
+    sync::{Mutex, RwLock, RwLockReadGuard, broadcast},
 };
 use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 use tokio_util::sync::CancellationToken;
@@ -28,10 +28,14 @@ pub struct HydraAdapter {
     head_status: RwLock<HeadStatus>,
     stream: Mutex<SplitStream<WsStream>>,
     sink: Mutex<SplitSink<WsStream, Message>>,
+    hydra_channel: Arc<broadcast::Sender<Event>>,
 }
 
 impl HydraAdapter {
-    pub async fn try_new(config: Config) -> anyhow::Result<Self> {
+    pub async fn try_new(
+        config: Config,
+        hydra_channel: Arc<broadcast::Sender<Event>>,
+    ) -> anyhow::Result<Self> {
         let (ws_stream, _) = connect_async(&config.ws_url).await?;
         info!("Hydra ws handshake has been successfully completed");
 
@@ -48,6 +52,7 @@ impl HydraAdapter {
             stream,
             sink,
             head_status,
+            hydra_channel,
         })
     }
 
@@ -80,6 +85,14 @@ impl HydraAdapter {
                         Event::HeadIsOpen { snapshot } => {
                             self.update_utxos(snapshot).await;
                             *self.head_status.write().await = HeadStatus::Open;
+                        }
+                        Event::TxInvalid { .. } | Event::TxValid { .. } => {
+                            if let Err(error) = self.hydra_channel.send(event.clone()) {
+                                debug!(
+                                    ?error,
+                                    "failed to send event to internal trp hydra channel"
+                                );
+                            }
                         }
                     },
 

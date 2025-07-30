@@ -40,7 +40,7 @@ impl UtxoSnapshot<'_> {
 
         let utxo_matches = |utxo: &Utxo| {
             let by_policy = utxo.value.assets_by_policy(&policy_hex);
-            by_policy.len() > 0
+            !by_policy.is_empty()
         };
 
         self.0
@@ -70,15 +70,14 @@ impl UtxoSnapshot<'_> {
 impl UtxoStore for UtxoSnapshot<'_> {
     async fn narrow_refs(&self, pattern: UtxoPattern<'_>) -> Result<HashSet<UtxoRef>, Error> {
         let txids = match pattern {
-            UtxoPattern::ByAddress(address) => self.get_utxo_by_address(&address),
+            UtxoPattern::ByAddress(address) => self.get_utxo_by_address(address),
             UtxoPattern::ByAssetPolicy(policy) => self.get_utxo_by_asset_policy(policy),
             UtxoPattern::ByAsset(policy, name) => self.get_utxo_by_asset(policy, name),
         };
 
         let refs = txids
             .into_iter()
-            .map(|txid| parse_txid(&txid))
-            .flatten()
+            .filter_map(|txid| parse_txid(&txid))
             .collect();
 
         Ok(refs)
