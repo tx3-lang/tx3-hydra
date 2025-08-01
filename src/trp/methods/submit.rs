@@ -110,60 +110,64 @@ pub async fn execute(
 
     let mut rx = hydra_channel.subscribe();
 
-    tokio::select! {
-        result = rx.recv() => {
-            match result {
-                Ok(event) => match event {
-                    hydra::model::Event::TxInvalid { transaction, validation_error } => {
-                        if transaction.tx_id.eq(&hash) {
-                            return Err(
-                                ErrorObject::owned(
-                                    ErrorCode::InvalidRequest.code(),
-                                    "invalid transaction",
-                                    Some(validation_error.reason),
-                                )
-                            );
-                        }
-                    },
-                    hydra::model::Event::TxValid { tx_id } => {
-                        if tx_id.eq(&hash) {
-                            let response = serde_json::to_value(TrpSubmitResponse { hash }).map_err(|error| {
-                                error!(?error);
-                                ErrorObject::owned(
-                                    ErrorCode::InternalError.code(),
-                                    "transaction accepted, but error to encode response",
-                                    Some(error.to_string()),
-                                )
-                            })?;
+    let response =
+        serde_json::to_value(TrpSubmitResponse { hash: hash.clone() }).map_err(|error| {
+            error!(?error);
+            ErrorObject::owned(
+                ErrorCode::InternalError.code(),
+                "transaction accepted, but error to encode response",
+                Some(error.to_string()),
+            )
+        })?;
 
-                            return Ok(response);
+    let result = tokio::time::timeout(SUBMIT_TIMEOUT, async {
+        loop {
+            match rx.recv().await {
+                Ok(event) => match event {
+                    hydra::model::Event::TxInvalid {
+                        transaction,
+                        validation_error,
+                    } => {
+                        if transaction.tx_id == hash {
+                            break Err(ErrorObject::owned(
+                                ErrorCode::InvalidRequest.code(),
+                                "invalid transaction",
+                                Some(validation_error.reason),
+                            ));
                         }
-                    },
+                    }
+                    hydra::model::Event::TxValid { tx_id } => {
+                        if tx_id == hash {
+                            break Ok(response);
+                        }
+                    }
                     _ => {}
                 },
-                Err(error) => debug!(?error, "failed to subscribe event from internal trp hydra channel"),
+                Err(error) => {
+                    debug!(
+                        ?error,
+                        "failed to subscribe event from internal trp hydra channel"
+                    );
+                    break Err(ErrorObject::owned(
+                        ErrorCode::InternalError.code(),
+                        "internal channel error",
+                        None::<String>,
+                    ));
+                }
             }
         }
-        _ = tokio::time::sleep(SUBMIT_TIMEOUT) => {
+    })
+    .await;
+
+    match result {
+        Ok(inner) => inner,
+        Err(_) => {
             debug!("submit request timeout");
-
-            return Err(
-                ErrorObject::owned(
-                    ErrorCode::ServerIsBusy.code(),
-                    "submit request timeout",
-                    None as Option<String>,
-                )
-            );
-        },
+            Err(ErrorObject::owned(
+                ErrorCode::ServerIsBusy.code(),
+                "submit request timeout",
+                None::<String>,
+            ))
+        }
     }
-    let response = serde_json::to_value(TrpSubmitResponse { hash }).map_err(|error| {
-        error!(?error);
-        ErrorObject::owned(
-            ErrorCode::InternalError.code(),
-            "transaction accepted, but error to encode response",
-            Some(error.to_string()),
-        )
-    })?;
-
-    Ok(response)
 }
