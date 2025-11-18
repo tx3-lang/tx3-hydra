@@ -22,8 +22,15 @@ pub struct UtxoSnapshot<'a>(pub RwLockReadGuard<'a, HashMap<TxID, Utxo>>);
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
+#[derive(Debug, Clone, Default)]
+pub struct Progress {
+    pub seq: u64,
+    pub timestamp: String,
+}
+
 pub struct HydraAdapter {
     config: Config,
+    progress: RwLock<Progress>,
     utxos: RwLock<HashMap<TxID, Utxo>>,
     head_status: RwLock<HeadStatus>,
     stream: Mutex<SplitStream<WsStream>>,
@@ -41,6 +48,7 @@ impl HydraAdapter {
 
         let (write, read) = ws_stream.split();
 
+        let progress = RwLock::new(Progress::default());
         let utxos = RwLock::new(HashMap::new());
         let stream = Mutex::new(read);
         let sink = Mutex::new(write);
@@ -48,6 +56,7 @@ impl HydraAdapter {
 
         Ok(Self {
             config,
+            progress,
             utxos,
             stream,
             sink,
@@ -79,8 +88,13 @@ impl HydraAdapter {
                             self.update_utxos(snapshot).await;
                             *self.head_status.write().await = head_status;
                         }
-                        Event::SnapshotConfirmed { snapshot } => {
+                        Event::SnapshotConfirmed {
+                            snapshot,
+                            seq,
+                            timestamp,
+                        } => {
                             self.update_utxos(snapshot.utxo).await;
+                            self.update_progress(seq, timestamp).await;
                         }
                         Event::HeadIsOpen { snapshot } => {
                             self.update_utxos(snapshot).await;
@@ -166,10 +180,18 @@ impl HydraAdapter {
         Ok(pparams)
     }
 
+    pub async fn get_progress(&self) -> Progress {
+        self.progress.read().await.clone()
+    }
+
     pub async fn update_utxos(&self, utxos: HashMap<TxID, Utxo>) {
         let utxos_len = utxos.len();
         *self.utxos.write().await = utxos;
         info!(utxos = utxos_len, "Snapshot updated");
+    }
+
+    pub async fn update_progress(&self, seq: u64, timestamp: String) {
+        *self.progress.write().await = Progress { seq, timestamp };
     }
 
     pub async fn read_utxos(&self) -> UtxoSnapshot {

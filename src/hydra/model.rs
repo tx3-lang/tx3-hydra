@@ -17,6 +17,8 @@ pub enum Event {
     },
     SnapshotConfirmed {
         snapshot: Snapshot,
+        seq: u64,
+        timestamp: String,
     },
     HeadIsOpen {
         #[serde(alias = "utxo")]
