@@ -3,6 +3,7 @@ use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params};
 use serde::Deserialize;
 use std::sync::Arc;
 use tracing::info;
+use tx3_cardano::ChainPoint;
 use tx3_lang::ProtoTx;
 
 use crate::trp::Context;
@@ -126,10 +127,26 @@ pub async fn execute(
         )
     })?;
 
+    let progress = hydra.get_progress().await;
+
+    // parse string date into unix timestamp
+    let timestamp = progress.timestamp.parse::<u64>().map_err(|e| {
+        ErrorObject::owned(
+            ErrorCode::InternalError.code(),
+            "Failed to parse timestamp",
+            Some(e.to_string()),
+        )
+    })?;
+
     let mut compiler = tx3_cardano::Compiler::new(
         pparams,
         tx3_cardano::Config {
             extra_fees: Some(0),
+        },
+        ChainPoint {
+            slot: progress.seq,
+            hash: vec![0; 32],
+            timestamp: timestamp as u128,
         },
     );
 

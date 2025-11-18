@@ -20,15 +20,15 @@ tower-http = { version = "0.6.6", features = ["cors", "trace"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
-tx3-lang = "0.11.4"
+tx3-lang = "0.12"
 # tx3-lang = { path = "../tx3/crates/tx3-lang" }
 # tx3-lang = { git = "https://github.com/tx3-lang/tx3.git" }
 
-tx3-resolver = "0.11.4"
+tx3-resolver = "0.12"
 # tx3-resolver = { path = "../tx3/crates/tx3-resolver" }
 # tx3-resolver = { git = "https://github.com/tx3-lang/tx3.git" }
 
-tx3-cardano = "0.11.4"
+tx3-cardano = "0.12"
 # tx3-cardano = { path = "../tx3/crates/tx3-cardano" }
 # tx3-cardano = { git = "https://github.com/tx3-lang/tx3.git" }
 
