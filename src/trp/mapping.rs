@@ -8,18 +8,15 @@ use tx3_cardano::pallas::{
         primitives::{BigInt, Constr, PlutusData},
     },
 };
-use tx3_lang::{
-    CanonicalAssets, UtxoRef,
-    ir::{Expression, StructExpr},
-};
+use tx3_resolver::{CanonicalAssets, Expression, StructExpr, UtxoRef};
 
 use crate::hydra::{
     self,
     model::{AssetValue, Utxo},
 };
 
-fn map_policy_assets(policy: &str, assets: &HashMap<String, u64>) -> tx3_lang::CanonicalAssets {
-    let init = tx3_lang::CanonicalAssets::empty();
+fn map_policy_assets(policy: &str, assets: &HashMap<String, u64>) -> tx3_resolver::CanonicalAssets {
+    let init = tx3_resolver::CanonicalAssets::empty();
 
     let policy_id = hex::decode(policy).unwrap();
 
@@ -32,8 +29,8 @@ fn map_policy_assets(policy: &str, assets: &HashMap<String, u64>) -> tx3_lang::C
         .fold(init, |acc, x| acc + x)
 }
 
-fn map_assets(value: &hydra::model::Value) -> tx3_lang::CanonicalAssets {
-    let init = tx3_lang::CanonicalAssets::empty();
+fn map_assets(value: &hydra::model::Value) -> tx3_resolver::CanonicalAssets {
+    let init = tx3_resolver::CanonicalAssets::empty();
 
     value
         .assets
@@ -112,7 +109,7 @@ fn map_datum(utxo: &Utxo) -> Result<Option<Expression>, anyhow::Error> {
     Ok(None)
 }
 
-pub fn into_tx3_utxo(ref_: UtxoRef, utxo: &Utxo) -> anyhow::Result<tx3_lang::Utxo> {
+pub fn into_tx3_utxo(ref_: UtxoRef, utxo: &Utxo) -> anyhow::Result<tx3_resolver::Utxo> {
     let address =
         Address::from_bech32(&utxo.address).context("failed to decode hydra utxo address")?;
 
@@ -120,7 +117,7 @@ pub fn into_tx3_utxo(ref_: UtxoRef, utxo: &Utxo) -> anyhow::Result<tx3_lang::Utx
 
     let assets = map_assets(&utxo.value);
 
-    let utxo = tx3_lang::Utxo {
+    let utxo = tx3_resolver::Utxo {
         address: address.to_vec(),
         r#ref: ref_,
         datum,

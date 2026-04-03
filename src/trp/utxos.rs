@@ -1,10 +1,7 @@
 use std::collections::HashSet;
 
 use tx3_cardano::pallas::ledger::addresses::Address;
-use tx3_lang::{
-    UtxoRef, UtxoSet,
-    backend::{Error, UtxoPattern, UtxoStore},
-};
+use tx3_resolver::{Error, UtxoPattern, UtxoRef, UtxoSet, UtxoStore};
 
 use crate::hydra::{
     UtxoSnapshot,
@@ -89,7 +86,10 @@ impl UtxoStore for UtxoSnapshot<'_> {
         for ref_ in refs {
             let txid = format!("{}#{}", hex::encode(&ref_.txid), ref_.index);
 
-            let utxo = self.0.get(&txid).ok_or(Error::UtxoNotFound(ref_.clone()))?;
+            let utxo = self
+                .0
+                .get(&txid)
+                .ok_or(Error::StoreError(format!("utxo not found: {txid}")))?;
 
             let utxo = super::mapping::into_tx3_utxo(ref_, utxo)
                 .map_err(|x| Error::StoreError(x.to_string()))?;
