@@ -35,14 +35,17 @@ pub async fn execute(
 
     let progress = hydra.get_progress().await;
 
-    // parse string date into unix timestamp
-    let timestamp = progress.timestamp.parse::<u64>().map_err(|e| {
-        ErrorObject::owned(
-            ErrorCode::InternalError.code(),
-            "Failed to parse timestamp",
-            Some(e.to_string()),
-        )
-    })?;
+    let timestamp = if progress.timestamp.is_empty() {
+        0u64
+    } else {
+        progress.timestamp.parse::<u64>().map_err(|e| {
+            ErrorObject::owned(
+                ErrorCode::InternalError.code(),
+                "Failed to parse timestamp",
+                Some(e.to_string()),
+            )
+        })?
+    };
 
     let mut compiler = tx3_cardano::Compiler::new(
         pparams,
