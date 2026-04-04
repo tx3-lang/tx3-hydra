@@ -31,3 +31,4 @@ tx3-cardano = "0.16.2"
 hex = "0.4.3"
 base64 = "0.22.1"
 reqwest = { version = "0.12.20", features = ["json", "rustls-tls"], default-features = false }
+chrono = { version = "0.4.44", default-features = false }

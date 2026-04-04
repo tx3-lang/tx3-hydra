@@ -1,3 +1,4 @@
+use chrono::DateTime;
 use jsonrpsee::types::{ErrorCode, ErrorObject, ErrorObjectOwned, Params};
 use std::sync::Arc;
 use tracing::info;
@@ -38,13 +39,14 @@ pub async fn execute(
     let timestamp = if progress.timestamp.is_empty() {
         0u64
     } else {
-        progress.timestamp.parse::<u64>().map_err(|e| {
+        let dt = DateTime::parse_from_rfc3339(&progress.timestamp).map_err(|e| {
             ErrorObject::owned(
                 ErrorCode::InternalError.code(),
                 "Failed to parse timestamp",
                 Some(e.to_string()),
             )
-        })?
+        })?;
+        dt.timestamp_millis() as u64
     };
 
     let mut compiler = tx3_cardano::Compiler::new(
