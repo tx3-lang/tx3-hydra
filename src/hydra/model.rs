@@ -107,6 +107,7 @@ pub struct Utxo {
     pub datumhash: Option<String>,
 
     #[serde(rename = "inlineDatum")]
+    #[allow(dead_code)]
     pub inline_datum: Option<serde_json::Value>,
 
     /// Base16 encoding

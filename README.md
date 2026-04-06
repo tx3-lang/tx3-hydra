@@ -39,6 +39,7 @@ Example `config.toml`:
 listen_address = "0.0.0.0:8164"
 permissive_cors = false
 max_optimize_rounds = 10
+max_connections = 100 # Maximum concurrent WebSocket connections (default: 100)
 
 [hydra]
 network = 0 # Cardano network ID (e.g., 0 for Testnet, 1 for Mainnet)
