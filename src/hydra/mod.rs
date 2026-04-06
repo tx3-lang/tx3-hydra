@@ -194,7 +194,7 @@ impl HydraAdapter {
         *self.progress.write().await = Progress { seq, timestamp };
     }
 
-    pub async fn read_utxos(&self) -> UtxoSnapshot {
+    pub async fn read_utxos(&self) -> UtxoSnapshot<'_> {
         UtxoSnapshot(self.utxos.read().await)
     }
 }
