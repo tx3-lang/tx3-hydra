@@ -9,35 +9,30 @@ on:
       - "!examples/**"
 
 jobs:
-  boros:
+  build:
     permissions:
       contents: read
       packages: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - context: .
-            file: Dockerfile
-            endpoint: tx3-lang/tx3-hydra
-
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.3
+      - uses: actions/checkout@v4
+
+      - name: Set image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
+          context: .
+          file: Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/${{ matrix.endpoint }},ghcr.io/${{ matrix.endpoint }}:${{ github.sha }}
+          tags: ${{ env.IMAGE }},${{ env.IMAGE }}:${{ github.sha }}

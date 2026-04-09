@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use jsonrpsee::{RpcModule, server::Server};
+use jsonrpsee::{RpcModule, server::Server, server::ServerConfig};
 use serde::Deserialize;
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
@@ -27,7 +27,11 @@ pub async fn run(
     };
 
     let middleware = ServiceBuilder::new().layer(cors_layer);
+    let server_config = ServerConfig::builder()
+        .max_connections(config.max_connections)
+        .build();
     let server = Server::builder()
+        .set_config(server_config)
         .set_http_middleware(middleware)
         .build(&config.listen_address)
         .await?;
@@ -83,6 +87,10 @@ fn default_max_optimize_rounds() -> usize {
     10
 }
 
+fn default_max_connections() -> u32 {
+    100
+}
+
 #[derive(Deserialize, Clone)]
 pub struct Config {
     listen_address: String,
@@ -90,4 +98,6 @@ pub struct Config {
     permissive_cors: bool,
     #[serde(default = "default_max_optimize_rounds")]
     max_optimize_rounds: usize,
+    #[serde(default = "default_max_connections")]
+    max_connections: u32,
 }
