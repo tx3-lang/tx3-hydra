@@ -97,6 +97,6 @@ impl UtxoStore for UtxoSnapshot<'_> {
             utxos.insert(utxo);
         }
 
-        Ok(utxos)
+        Ok(utxos.into())
     }
 }

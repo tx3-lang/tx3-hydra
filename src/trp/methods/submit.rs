@@ -127,19 +127,15 @@ pub async fn execute(
                     hydra::model::Event::TxInvalid {
                         transaction,
                         validation_error,
-                    } => {
-                        if transaction.tx_id == hash {
-                            break Err(ErrorObject::owned(
-                                ErrorCode::InvalidRequest.code(),
-                                "invalid transaction",
-                                Some(validation_error.reason),
-                            ));
-                        }
+                    } if transaction.tx_id == hash => {
+                        break Err(ErrorObject::owned(
+                            ErrorCode::InvalidRequest.code(),
+                            "invalid transaction",
+                            Some(validation_error.reason),
+                        ));
                     }
-                    hydra::model::Event::TxValid { tx_id } => {
-                        if tx_id == hash {
-                            break Ok(response);
-                        }
+                    hydra::model::Event::TxValid { tx_id } if tx_id == hash => {
+                        break Ok(response);
                     }
                     _ => {}
                 },
