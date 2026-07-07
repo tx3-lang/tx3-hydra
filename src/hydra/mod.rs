@@ -4,7 +4,7 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
 };
 use serde::Deserialize;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::{
     net::TcpStream,
     sync::{Mutex, RwLock, RwLockReadGuard, broadcast},
@@ -15,24 +15,19 @@ use tracing::{debug, info};
 use tx3_cardano::PParams;
 
 pub mod model;
+pub mod state;
 
-use model::{Event, HeadStatus, HydraMessage, HydraPParams, TxID, Utxo};
+use model::{Event, EventMeta, HydraMessage, HydraPParams};
+use state::HeadState;
+pub use state::Progress;
 
-pub struct UtxoSnapshot<'a>(pub RwLockReadGuard<'a, HashMap<TxID, Utxo>>);
+pub struct UtxoSnapshot<'a>(pub RwLockReadGuard<'a, HeadState>);
 
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
-#[derive(Debug, Clone, Default)]
-pub struct Progress {
-    pub seq: u64,
-    pub timestamp: String,
-}
-
 pub struct HydraAdapter {
     config: Config,
-    progress: RwLock<Progress>,
-    utxos: RwLock<HashMap<TxID, Utxo>>,
-    head_status: RwLock<HeadStatus>,
+    state: RwLock<HeadState>,
     stream: Mutex<SplitStream<WsStream>>,
     sink: Mutex<SplitSink<WsStream, Message>>,
     hydra_channel: Arc<broadcast::Sender<Event>>,
@@ -48,19 +43,15 @@ impl HydraAdapter {
 
         let (write, read) = ws_stream.split();
 
-        let progress = RwLock::new(Progress::default());
-        let utxos = RwLock::new(HashMap::new());
+        let state = RwLock::new(HeadState::default());
         let stream = Mutex::new(read);
         let sink = Mutex::new(write);
-        let head_status = RwLock::new(HeadStatus::Closed);
 
         Ok(Self {
             config,
-            progress,
-            utxos,
+            state,
             stream,
             sink,
-            head_status,
             hydra_channel,
         })
     }
@@ -78,41 +69,33 @@ impl HydraAdapter {
                     break;
                 }
 
-                match serde_json::from_str::<Event>(message.to_text().unwrap()) {
-                    Ok(event) => match event {
-                        Event::Greetings {
-                            head_status,
-                            snapshot,
-                        } => {
-                            info!(utxos = snapshot.len(), "Greetings event");
-                            self.update_utxos(snapshot).await;
-                            *self.head_status.write().await = head_status;
-                        }
-                        Event::SnapshotConfirmed {
-                            snapshot,
-                            seq,
-                            timestamp,
-                        } => {
-                            self.update_utxos(snapshot.utxo).await;
-                            self.update_progress(seq, timestamp).await;
-                        }
-                        Event::HeadIsOpen { snapshot } => {
-                            self.update_utxos(snapshot).await;
-                            *self.head_status.write().await = HeadStatus::Open;
-                        }
-                        Event::TxInvalid { .. } | Event::TxValid { .. } => {
-                            if let Err(error) = self.hydra_channel.send(event.clone()) {
-                                debug!(
-                                    ?error,
-                                    "failed to send event to internal trp hydra channel"
-                                );
-                            }
-                        }
-                    },
+                let text = message.to_text().unwrap();
 
-                    Err(_) => {
-                        let message = message.to_text().unwrap();
-                        debug!(?message, "Hydra event not supported")
+                match serde_json::from_str::<Event>(text) {
+                    Ok(event) => {
+                        let meta = serde_json::from_str::<EventMeta>(text).unwrap_or_default();
+                        self.state.write().await.apply(&event, &meta);
+
+                        if matches!(event, Event::TxInvalid { .. } | Event::TxValid { .. })
+                            && let Err(error) = self.hydra_channel.send(event.clone())
+                        {
+                            debug!(?error, "failed to send event to internal trp hydra channel");
+                        }
+                    }
+
+                    Err(error) => {
+                        #[derive(Deserialize)]
+                        struct TagOnly {
+                            tag: Option<String>,
+                        }
+
+                        let tag = serde_json::from_str::<TagOnly>(text)
+                            .ok()
+                            .and_then(|x| x.tag)
+                            .unwrap_or_else(|| "<missing>".to_string());
+
+                        info!(%tag, "unhandled Hydra event");
+                        debug!(payload = %text, ?error, "Hydra event not supported")
                     }
                 }
             }
@@ -181,21 +164,11 @@ impl HydraAdapter {
     }
 
     pub async fn get_progress(&self) -> Progress {
-        self.progress.read().await.clone()
-    }
-
-    pub async fn update_utxos(&self, utxos: HashMap<TxID, Utxo>) {
-        let utxos_len = utxos.len();
-        *self.utxos.write().await = utxos;
-        info!(utxos = utxos_len, "Snapshot updated");
-    }
-
-    pub async fn update_progress(&self, seq: u64, timestamp: String) {
-        *self.progress.write().await = Progress { seq, timestamp };
+        self.state.read().await.progress.clone()
     }
 
     pub async fn read_utxos(&self) -> UtxoSnapshot<'_> {
-        UtxoSnapshot(self.utxos.read().await)
+        UtxoSnapshot(self.state.read().await)
     }
 }
 

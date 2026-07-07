@@ -2,7 +2,7 @@ version: "3"
 services:
   hydra-node:
     container_name: hydra-node
-    image: ghcr.io/cardano-scaling/hydra-node:0.22.2
+    image: ghcr.io/cardano-scaling/hydra-node:2.2.0
     restart: always
     command:
       [ "--api-host", "0.0.0.0"

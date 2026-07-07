@@ -1,0 +1,1 @@
+{"tag":"CommitRecovered","recoveredUTxO":{"deposit#0":{"address":"addr_test1vpg24ht6y8p6500k56hh9q0994rdvn2xulnul7a6w0yx4mg68vswg","datum":null,"datumhash":null,"inlineDatum":null,"inlineDatumhash":null,"inlineDatumRaw":null,"referenceScript":null,"value":{"lovelace":2000000}}},"recoveredTxId":"recover-tx","headId":"head","seq":11,"timestamp":"2026-01-01T00:00:11Z"}

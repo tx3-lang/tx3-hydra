@@ -12,7 +12,7 @@ Tx3-hydra provides support for Hydra state channels within the Tx3 ecosystem. It
 ## Prerequisites
 
 - Rust and Cargo (latest stable version recommended)
-- A running Hydra Head instance
+- A running Hydra Head instance. tx3-hydra supports hydra-node 0.20 through 2.2, including ADR-33 directly-open heads. Incremental deposits become resolvable after Hydra emits `CommitApproved`.
 
 ## Building and Running
 
