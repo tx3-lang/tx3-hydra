@@ -26,6 +26,7 @@ impl UtxoSnapshot<'_> {
         };
 
         self.0
+            .utxos
             .iter()
             .filter(|(_, utxo)| utxo.address.eq(&address))
             .map(|(tx_id, _)| tx_id.clone())
@@ -41,6 +42,7 @@ impl UtxoSnapshot<'_> {
         };
 
         self.0
+            .utxos
             .iter()
             .filter(|(_, utxo)| utxo_matches(utxo))
             .map(|(tx_id, _)| tx_id.clone())
@@ -57,6 +59,7 @@ impl UtxoSnapshot<'_> {
         };
 
         self.0
+            .utxos
             .iter()
             .filter(|(_, utxo)| utxo_matches(utxo))
             .map(|(tx_id, _)| tx_id.clone())
@@ -88,6 +91,7 @@ impl UtxoStore for UtxoSnapshot<'_> {
 
             let utxo = self
                 .0
+                .utxos
                 .get(&txid)
                 .ok_or(Error::StoreError(format!("utxo not found: {txid}")))?;
 

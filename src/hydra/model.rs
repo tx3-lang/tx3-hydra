@@ -12,17 +12,43 @@ pub enum Event {
         #[serde(rename = "headStatus")]
         head_status: HeadStatus,
 
-        #[serde(alias = "snapshotUtxo")]
+        #[serde(rename = "snapshotUtxo", default)]
         snapshot: HashMap<TxID, Utxo>,
     },
     SnapshotConfirmed {
         snapshot: Snapshot,
-        seq: u64,
-        timestamp: String,
     },
     HeadIsOpen {
-        #[serde(alias = "utxo")]
+        #[serde(rename = "utxo", default)]
         snapshot: HashMap<TxID, Utxo>,
+    },
+    CommitApproved {
+        #[serde(rename = "utxoToCommit")]
+        utxo_to_commit: HashMap<TxID, Utxo>,
+    },
+    CommitRecovered {
+        #[serde(rename = "recoveredUTxO")]
+        recovered_utxo: HashMap<TxID, Utxo>,
+        #[serde(rename = "recoveredTxId")]
+        recovered_tx_id: String,
+    },
+    CommitRecorded {
+        #[serde(rename = "pendingDeposit")]
+        pending_deposit: String,
+        #[serde(rename = "utxoToCommit")]
+        utxo_to_commit: HashMap<TxID, Utxo>,
+    },
+    DepositActivated {
+        #[serde(rename = "depositTxId", alias = "theDeposit")]
+        deposit_tx_id: String,
+    },
+    DepositExpired {
+        #[serde(rename = "depositTxId", alias = "theDeposit")]
+        deposit_tx_id: String,
+    },
+    CommitFinalized {
+        #[serde(rename = "depositTxId", alias = "theDeposit")]
+        deposit_tx_id: String,
     },
     TxValid {
         #[serde(alias = "transactionId")]
@@ -36,8 +62,9 @@ pub enum Event {
     },
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default, PartialEq, Eq)]
 pub enum HeadStatus {
+    #[default]
     Idle,
     Initializing,
     Open,
@@ -46,9 +73,31 @@ pub enum HeadStatus {
     Final,
 }
 
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct EventMeta {
+    #[serde(default)]
+    pub seq: u64,
+    #[serde(default)]
+    pub timestamp: String,
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Snapshot {
     pub utxo: HashMap<TxID, Utxo>,
+    #[serde(rename = "utxoToCommit", default)]
+    pub utxo_to_commit: Option<HashMap<TxID, Utxo>>,
+}
+
+impl Snapshot {
+    pub fn full_utxo(self) -> HashMap<TxID, Utxo> {
+        let mut utxo = self.utxo;
+
+        if let Some(utxo_to_commit) = self.utxo_to_commit {
+            utxo.extend(utxo_to_commit);
+        }
+
+        utxo
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
@@ -208,5 +257,99 @@ impl NewTx {
             description,
             cbor_hex,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse(name: &str) -> (Event, EventMeta) {
+        let text = match name {
+            "greetings_idle_2x" => include_str!("test_data/greetings_idle_2x.json"),
+            "greetings_open" => include_str!("test_data/greetings_open.json"),
+            "head_is_open_2x" => include_str!("test_data/head_is_open_2x.json"),
+            "head_is_open_legacy" => include_str!("test_data/head_is_open_legacy.json"),
+            "snapshot_confirmed_legacy" => include_str!("test_data/snapshot_confirmed_legacy.json"),
+            "snapshot_confirmed_null_commit" => {
+                include_str!("test_data/snapshot_confirmed_null_commit.json")
+            }
+            "snapshot_confirmed_with_commit" => {
+                include_str!("test_data/snapshot_confirmed_with_commit.json")
+            }
+            "commit_recorded" => include_str!("test_data/commit_recorded.json"),
+            "deposit_activated" => include_str!("test_data/deposit_activated.json"),
+            "deposit_expired" => include_str!("test_data/deposit_expired.json"),
+            "commit_approved" => include_str!("test_data/commit_approved.json"),
+            "commit_recovered" => include_str!("test_data/commit_recovered.json"),
+            "commit_finalized_021" => include_str!("test_data/commit_finalized_021.json"),
+            "commit_finalized_020" => include_str!("test_data/commit_finalized_020.json"),
+            "tx_valid" => include_str!("test_data/tx_valid.json"),
+            "tx_invalid" => include_str!("test_data/tx_invalid.json"),
+            _ => unreachable!(),
+        };
+
+        (
+            serde_json::from_str(text).unwrap(),
+            serde_json::from_str(text).unwrap(),
+        )
+    }
+
+    #[test]
+    fn fixtures_deserialize_to_expected_variants() {
+        assert!(
+            matches!(parse("greetings_idle_2x").0, Event::Greetings { snapshot, .. } if snapshot.is_empty())
+        );
+        assert!(
+            matches!(parse("greetings_open").0, Event::Greetings { head_status: HeadStatus::Open, snapshot } if snapshot.len() == 1)
+        );
+        assert!(
+            matches!(parse("head_is_open_2x").0, Event::HeadIsOpen { snapshot } if snapshot.is_empty())
+        );
+        assert!(
+            matches!(parse("head_is_open_legacy").0, Event::HeadIsOpen { snapshot } if snapshot.len() == 1)
+        );
+        assert!(
+            matches!(parse("snapshot_confirmed_legacy").0, Event::SnapshotConfirmed { snapshot } if snapshot.utxo.len() == 1 && snapshot.utxo_to_commit.is_none())
+        );
+        assert!(
+            matches!(parse("snapshot_confirmed_null_commit").0, Event::SnapshotConfirmed { snapshot } if snapshot.utxo_to_commit.is_none())
+        );
+        assert!(
+            matches!(parse("snapshot_confirmed_with_commit").0, Event::SnapshotConfirmed { snapshot } if snapshot.clone().full_utxo().len() == 2)
+        );
+        assert!(
+            matches!(parse("commit_recorded").0, Event::CommitRecorded { pending_deposit, utxo_to_commit } if pending_deposit == "deposit-tx" && utxo_to_commit.len() == 1)
+        );
+        assert!(
+            matches!(parse("deposit_activated").0, Event::DepositActivated { deposit_tx_id } if deposit_tx_id == "deposit-tx")
+        );
+        assert!(
+            matches!(parse("deposit_expired").0, Event::DepositExpired { deposit_tx_id } if deposit_tx_id == "deposit-tx")
+        );
+        assert!(
+            matches!(parse("commit_approved").0, Event::CommitApproved { utxo_to_commit } if utxo_to_commit.len() == 1)
+        );
+        assert!(
+            matches!(parse("commit_recovered").0, Event::CommitRecovered { recovered_utxo, recovered_tx_id } if recovered_utxo.len() == 1 && recovered_tx_id == "recover-tx")
+        );
+        assert!(
+            matches!(parse("commit_finalized_021").0, Event::CommitFinalized { deposit_tx_id } if deposit_tx_id == "deposit-tx")
+        );
+        assert!(
+            matches!(parse("commit_finalized_020").0, Event::CommitFinalized { deposit_tx_id } if deposit_tx_id == "deposit-tx")
+        );
+        assert!(matches!(parse("tx_valid").0, Event::TxValid { tx_id } if tx_id == "valid-tx"));
+        assert!(
+            matches!(parse("tx_invalid").0, Event::TxInvalid { transaction, validation_error } if transaction.tx_id == "invalid-tx" && validation_error.reason == "bad")
+        );
+    }
+
+    #[test]
+    fn event_meta_parses_from_fixtures() {
+        let (_, meta) = parse("commit_approved");
+
+        assert_eq!(meta.seq, 10);
+        assert_eq!(meta.timestamp, "2026-01-01T00:00:10Z");
     }
 }
