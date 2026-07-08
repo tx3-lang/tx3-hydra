@@ -2,6 +2,8 @@
 name = "tx3-hydra"
 version = "0.1.0"
 edition = "2024"
+publish = false
+repository = "https://github.com/tx3-lang/tx3-hydra"
 
 [dependencies]
 anyhow = "1.0.98"
@@ -32,3 +34,11 @@ hex = "0.4.3"
 base64 = "0.22.1"
 reqwest = { version = "0.12.20", features = ["json", "rustls-tls"], default-features = false }
 chrono = { version = "0.4.44", default-features = false }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+[package.metadata.dist]
+dist = true
